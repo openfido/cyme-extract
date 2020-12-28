@@ -16,3 +16,14 @@ An index file named `index.csv` is output containing information about each CSV 
 | -------- | ----- | ------- | ---- | ---- |
 | MDBNAME  | TABLENAME | csvname | n-chars | n-rows |
 
+## Docker Usage
+
+You can run this pipeline on a supported docker container (e.g., `ubuntu:20.04`) using the following command:
+
+~~~
+host% mkdir input
+host% cp my-database.mdb input
+host% git clone https://github.com/openfido/cyme-extract --depth 1
+host% mkdir output
+host% docker run -it -v $PWD:$PWD -e OPENFIDO_INPUT=$PWD/input -e OPENFIDO_OUTPUT=$PWD/output ubuntu:20.04 $PWD/cyme-extract/openfido.sh
+~~~
