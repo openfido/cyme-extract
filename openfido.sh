@@ -1,4 +1,17 @@
 #!/bin/bash
+#
+# Environment:
+#
+#   OPENFIDO_INPUT --> input folder when MDB files are placed
+#   OPENFIDO_OUTPUT --> output folder when CSV files are placed
+#
+# Special files:
+#
+#   config.csv -> run configuration
+#
+#     PATTERN=<grep-pattern> --> restricts the names of the database to extract
+#     EXTRACT=[all|non-empty] --> extracts all or only non-empty tables
+#     
 
 # nounset: undefined variable outputs error message, and forces an exit
 set -u
@@ -25,9 +38,14 @@ cd $TMP
 echo "Copying input files to working directory"
 cp -r $OPENFIDO_INPUT/* .
 
+if [ -f "config.csv" ]; then
+	PATTERN=$(grep ^PATTERN= | cut -f2 -d=)
+	OPTIONS=$(grep ^OPTIONS= | cut -f2 -d=)
+fi
+
 INDEX=index.csv
 echo "database,table,csvname,size,rows" > $INDEX
-for DATABASE in $(ls -1 *.mdb); do
+for DATABASE in $(ls -1 *.mdb | grep ${PATTERN:-.\*}); do
 	CSVDIR=${DATABASE/.mdb/}
 	mkdir -p $CSVDIR
 	for TABLE in $(mdb-tables $DATABASE); do
@@ -35,7 +53,9 @@ for DATABASE in $(ls -1 *.mdb); do
 		mdb-export "$DATABASE" "$TABLE" > "$CSVDIR/$CSV"
 		SIZE=$(echo $(wc -c $CSVDIR/$CSV) | cut -f1 -d' ' )
 		ROWS=$(echo $(wc -l $CSVDIR/$CSV) | cut -f1 -d' ' )
-		echo "$DATABASE,$TABLE,$CSV,$SIZE,$(($ROWS-1))" >> $INDEX
+		if [ $ROWS -gt 1 -o "${OPTIONS:-non-empty}" == "all" ]; then
+			echo "$DATABASE,$TABLE,$CSV,$SIZE,$(($ROWS-1))" >> $INDEX
+		fi
 	done
 done
 
