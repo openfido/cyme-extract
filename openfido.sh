@@ -86,4 +86,4 @@ done
 echo version > version.csv
 echo $VERSION >> version.csv
 
-mv "$TMP"/* "$OPENFIDO_OUTPUT" 
+cp -r "$TMP"/* "$OPENFIDO_OUTPUT" 
