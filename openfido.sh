@@ -12,6 +12,7 @@
 #     FILES=<grep-pattern> --> restricts the names of the database to extract
 #     TABLES=<table-list> --> extract only the listed tables
 #     EXTRACT=[all|non-empty] --> extracts all or only non-empty tables
+#     TIMEZONE=<country>/<city> --> changes localtime to use specified timezone
 #     
 
 # nounset: undefined variable outputs error message, and forces an exit
@@ -33,34 +34,48 @@ fi
 
 TMP=/tmp/openfido-$$
 echo "Creating working direction $TMP"
-mkdir -p $TMP
-cd $TMP
+mkdir -p "$TMP"
+cd "$TMP"
 
 echo "Copying input files to working directory"
-cp -r $OPENFIDO_INPUT/* .
+cp -r "$OPENFIDO_INPUT"/* .
 
 if [ -f "config.csv" ]; then
 	FILES=$(grep ^FILES= config.csv | cut -f2 -d=)
 	TABLES=$(grep ^TABLES= config.csv | cut -f2 -d=)
 	EXTRACT=$(grep ^EXTRACT= config.csv | cut -f2 -d=)
+	TIMEZONE=$(grep ^TIMEZONE= config.csv | cut -f2 -d=)
+fi
+
+if [ -f "/usr/share/zoneinfo/$TIMEZONE" ]; then
+	export DEBIAN_FRONTEND=noninteractive
+	ln -sf "/usr/share/zoneinfo/$TIMEZONE" "/etc/localtime"
+	apt-get install tzdata -yqq
+	dpkg-reconfigure --frontend noninteractive tzdata
+elif [ ! -z "$TIMEZONE" ]; then
+	export DEBIAN_FRONTEND=noninteractive
+	apt-get install tzdata -yqq
+	echo "WARNING [config.csv]: TIMEZONE=$TIMEZONE is not valid (/usr/share/zoneinfo/$TIMEZONE not found)"
+	echo "  See 'timezones.csv' for a list of valid timezones"
+	ls -R "/usr/share/zoneinfo" > "timezones.csv"
 fi
 
 INDEX=index.csv
-echo "database,table,csvname,size,rows" > $INDEX
+echo "database,table,csvname,size,rows" > "$INDEX"
 for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	CSVDIR=${DATABASE/.mdb/}
-	mkdir -p $CSVDIR
-	for TABLE in ${TABLES:-$(mdb-tables $DATABASE)}; do
+	mkdir -p "$CSVDIR"
+	for TABLE in ${TABLES:-$(mdb-tables "$DATABASE")}; do
 		CSV=$(echo ${TABLE/CYM/} | tr A-Z a-z).csv
 		mdb-export "$DATABASE" "$TABLE" > "$CSVDIR/$CSV"
 		SIZE=$(echo $(wc -c $CSVDIR/$CSV) | cut -f1 -d' ' )
 		ROWS=$(echo $(wc -l $CSVDIR/$CSV) | cut -f1 -d' ' )
-		if [ $ROWS -gt 1 -o "${EXTRACT:-non-empty}" == "all" ]; then
-			echo "$DATABASE,$TABLE,$CSV,$SIZE,$(($ROWS-1))" >> $INDEX
+		if [ "$ROWS" -gt 1 -o "${EXTRACT:-non-empty}" == "all" ]; then
+			echo "$DATABASE,$TABLE,$CSV,$SIZE,$(($ROWS-1))" >> "$INDEX"
 		else
 			rm "$CSVDIR/$CSV"
 		fi
 	done
 done
 
-mv $TMP/* $OPENFIDO_OUTPUT 
+mv "$TMP"/* "$OPENFIDO_OUTPUT" 
