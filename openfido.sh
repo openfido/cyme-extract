@@ -9,10 +9,10 @@
 #
 #   config.csv -> run configuration
 #
-#     FILES=<grep-pattern> --> restricts the names of the database to extract
-#     TABLES=<table-list> --> extract only the listed tables
-#     EXTRACT=[all|non-empty] --> extracts all or only non-empty tables
-#     TIMEZONE=<country>/<city> --> changes localtime to use specified timezone
+#     FILES,<grep-pattern> --> restricts the names of the database to extract
+#     TABLES,<table-list> --> extract only the listed tables
+#     EXTRACT,[all|non-empty] --> extracts all or only non-empty tables
+#     TIMEZONE,<country>/<city> --> changes localtime to use specified timezone
 #     
 
 # nounset: undefined variable outputs error message, and forces an exit
@@ -41,10 +41,10 @@ echo "Copying input files to working directory"
 cp -r "$OPENFIDO_INPUT"/* .
 
 if [ -f "config.csv" ]; then
-	FILES=$(grep ^FILES= config.csv | cut -f2 -d=)
-	TABLES=$(grep ^TABLES= config.csv | cut -f2 -d=)
-	EXTRACT=$(grep ^EXTRACT= config.csv | cut -f2 -d=)
-	TIMEZONE=$(grep ^TIMEZONE= config.csv | cut -f2 -d=)
+	FILES=$(grep ^FILES, config.csv | cut -f2 -d,)
+	TABLES=$(grep ^TABLES, config.csv | cut -f2 -d,)
+	EXTRACT=$(grep ^EXTRACT, config.csv | cut -f2 -d,)
+	TIMEZONE=$(grep ^TIMEZONE, config.csv | cut -f2 -d,)
 fi
 
 if [ -f "/usr/share/zoneinfo/$TIMEZONE" ]; then
@@ -57,7 +57,10 @@ elif [ ! -z "$TIMEZONE" ]; then
 	apt-get install tzdata -yqq
 	echo "WARNING [config.csv]: TIMEZONE=$TIMEZONE is not valid (/usr/share/zoneinfo/$TIMEZONE not found)"
 	echo "  See 'timezones.csv' for a list of valid timezones"
-	ls -R "/usr/share/zoneinfo" > "timezones.csv"
+	echo "timezone" > timezones.csv
+	for TZDATA in $(find -L /usr/share/zoneinfo/posix -name '[A-Z]*' -print); do
+		echo ${TZDATA/\/usr\/share\/zoneinfo\/posix\//} >> timezones.csv
+	done
 fi
 
 INDEX=index.csv
