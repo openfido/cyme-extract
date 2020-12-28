@@ -6,6 +6,42 @@ Extract a CYME MDB file to its constituent tables in CSV format.
 
 The input folder must contain one or more MDB files, with the extension `.mdb`.
 
+The configuration file `config.csv` may contain any of the following:
+
+### `FILES`
+
+To specify which MDB files are to be extracted, add the following line to `config.csv`:
+
+~~~
+FILES=<grep-pattern>
+~~~
+
+### `TABLES`
+
+To specify which tables are to be extracted, add the following line to `config.csv`:
+
+~~~
+TABLES=<table-list>
+~~~
+
+### `EXTRACT`
+
+To specify whether empty tables are to be extracted, add the following line to `config.csv`:
+
+~~~
+EXTRACT=[all|non-empty]
+~~~
+
+### `TIMEZONE`
+
+To specify which timezone to work in, add the following line to `config.csv`:
+
+~~~
+TIMEZONE=<country>/<city>
+~~~
+
+If an invalid timezone is used, a complete list of available timezones will be put in the output folder in the file names `timezones.csv`.
+
 ## Output
 
 The output folder will contain a folder for each input MDB file, with CSV files corresponding to each of the tables in the input MDB file.  CSV file names correspond to the MDB table name, with the `CYM` prefix removed and using lowercase letters.
