@@ -16,6 +16,8 @@ To specify which MDB files are to be extracted, add the following line to `confi
 FILES,<grep-pattern>
 ~~~
 
+The default is to extract all MDB files found in the input folder.
+
 ### `TABLES`
 
 To specify which tables are to be extracted, add the following line to `config.csv`:
@@ -23,6 +25,8 @@ To specify which tables are to be extracted, add the following line to `config.c
 ~~~
 TABLES,<table-list>
 ~~~
+
+The default is to extract all tables in the MDB file.
 
 ### `EXTRACT`
 
@@ -32,6 +36,8 @@ To specify whether empty tables are to be extracted, add the following line to `
 EXTRACT,[all|non-empty]
 ~~~
 
+The default is to extract all tables in the MDB file.
+
 ### `TIMEZONE`
 
 To specify which timezone to work in, add the following line to `config.csv`:
@@ -40,7 +46,7 @@ To specify which timezone to work in, add the following line to `config.csv`:
 TIMEZONE,<country>/<city>
 ~~~
 
-If an invalid timezone is used, a complete list of available timezones will be put in the output folder in the file names `timezones.csv`.
+The default timezone is UTC. If an invalid timezone is used, a complete list of available timezones will be put in the output folder in the file names `timezones.csv`.
 
 ## Output
 
