@@ -9,7 +9,8 @@
 #
 #   config.csv -> run configuration
 #
-#     PATTERN=<grep-pattern> --> restricts the names of the database to extract
+#     FILES=<grep-pattern> --> restricts the names of the database to extract
+#     TABLES=<table-list> --> extract only the listed tables
 #     EXTRACT=[all|non-empty] --> extracts all or only non-empty tables
 #     
 
@@ -39,22 +40,25 @@ echo "Copying input files to working directory"
 cp -r $OPENFIDO_INPUT/* .
 
 if [ -f "config.csv" ]; then
-	PATTERN=$(grep ^PATTERN= | cut -f2 -d=)
-	OPTIONS=$(grep ^OPTIONS= | cut -f2 -d=)
+	FILES=$(grep ^FILES= config.csv | cut -f2 -d=)
+	TABLES=$(grep ^TABLES= config.csv | cut -f2 -d=)
+	EXTRACT=$(grep ^EXTRACT= config.csv | cut -f2 -d=)
 fi
 
 INDEX=index.csv
 echo "database,table,csvname,size,rows" > $INDEX
-for DATABASE in $(ls -1 *.mdb | grep ${PATTERN:-.\*}); do
+for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	CSVDIR=${DATABASE/.mdb/}
 	mkdir -p $CSVDIR
-	for TABLE in $(mdb-tables $DATABASE); do
+	for TABLE in ${TABLES:-$(mdb-tables $DATABASE)}; do
 		CSV=$(echo ${TABLE/CYM/} | tr A-Z a-z).csv
 		mdb-export "$DATABASE" "$TABLE" > "$CSVDIR/$CSV"
 		SIZE=$(echo $(wc -c $CSVDIR/$CSV) | cut -f1 -d' ' )
 		ROWS=$(echo $(wc -l $CSVDIR/$CSV) | cut -f1 -d' ' )
-		if [ $ROWS -gt 1 -o "${OPTIONS:-non-empty}" == "all" ]; then
+		if [ $ROWS -gt 1 -o "${EXTRACT:-non-empty}" == "all" ]; then
 			echo "$DATABASE,$TABLE,$CSV,$SIZE,$(($ROWS-1))" >> $INDEX
+		else
+			rm "$CSVDIR/$CSV"
 		fi
 	done
 done
