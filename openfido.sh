@@ -68,7 +68,7 @@ fi
 INDEX=index.csv
 echo "database,table,csvname,size,rows" > "$INDEX"
 for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
-	CSVDIR=${DATABASE/.mdb/}
+	CSVDIR=${DATABASE%.*}
 	mkdir -p "$CSVDIR"
 	for TABLE in ${TABLES:-$(mdb-tables "$DATABASE")}; do
 		CSV=$(echo ${TABLE/CYM/} | tr A-Z a-z).csv
