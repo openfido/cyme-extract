@@ -13,7 +13,7 @@ The configuration file `config.csv` may contain any of the following:
 To specify which MDB files are to be extracted, add the following line to `config.csv`:
 
 ~~~
-FILES=<grep-pattern>
+FILES,<grep-pattern>
 ~~~
 
 ### `TABLES`
@@ -21,7 +21,7 @@ FILES=<grep-pattern>
 To specify which tables are to be extracted, add the following line to `config.csv`:
 
 ~~~
-TABLES=<table-list>
+TABLES,<table-list>
 ~~~
 
 ### `EXTRACT`
@@ -29,7 +29,7 @@ TABLES=<table-list>
 To specify whether empty tables are to be extracted, add the following line to `config.csv`:
 
 ~~~
-EXTRACT=[all|non-empty]
+EXTRACT,[all|non-empty]
 ~~~
 
 ### `TIMEZONE`
@@ -37,7 +37,7 @@ EXTRACT=[all|non-empty]
 To specify which timezone to work in, add the following line to `config.csv`:
 
 ~~~
-TIMEZONE=<country>/<city>
+TIMEZONE,<country>/<city>
 ~~~
 
 If an invalid timezone is used, a complete list of available timezones will be put in the output folder in the file names `timezones.csv`.
