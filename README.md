@@ -1,3 +1,5 @@
+![CI](https://github.com/openfido/cyme-extract/workflows/CI/badge.svg)
+
 # CYME Model Data Extractor
 
 Extract a CYME MDB file to its constituent tables in CSV format.
