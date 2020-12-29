@@ -22,14 +22,19 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
+      - name: Install needed tools
+        run: |
+          sudo apt update -yqq
+          sudo apt install mdbtools tzdata python3 zip -yqq 
+
       # Runs a single command using the runners shell
       - name: Run autotests
-        run: ./autotest.sh
+        run: ( ./autotest.sh || ( zip autotest-output.zip autotest/output_*/* ; false )
 
       - name: Upload artifacts on failure
         uses: actions/upload-artifact@v2
         if: failure()
         with:
-          name: output_1-stderr.txt
+          name: autotest-output.zip
           path: |
-            autotest/output_1/stderr
+            autotest-output.zip
