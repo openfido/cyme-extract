@@ -152,7 +152,8 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 			(cd $CSVDIR ; $SRCDIR/postproc/$PROC)
 		done
 	fi
-	(cd "$CSVDIR" ; zip -q "../$CSVDIR.zip" *.csv ; rm -rf "$CSVDIR") 
+	(cd "$CSVDIR" ; zip -q "../$CSVDIR.zip" *.csv )
+	rm -rf "$CSVDIR"
 done
 
 # output version info
@@ -162,7 +163,7 @@ echo $VERSION >> version.csv
 # copy results to output
 echo "Moving results to $OPENFIDO_OUTPUT"
 for EXT in ${OUTPUTS:-zip csv json}; do
-	for FILE in $(ls -1 *.$EXT); do
+	for FILE in $(find . -name '*.'$EXT -print); do
 		echo "  $FILE ($(wc -c $FILE | awk '{print $1}') bytes)"
 		mv $FILE "$OPENFIDO_OUTPUT"
 	done
