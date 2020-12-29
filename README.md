@@ -50,6 +50,24 @@ TIMEZONE,<country>/<city>
 
 The default timezone is UTC. If an invalid timezone is used, a complete list of available timezones will be put in the output folder in the file names `timezones.csv`.
 
+### `POSTPROC`
+
+To specify one or more post-processing steps, list the name of the process scripts in the `postproc` folder, add the following line to `config.csv`:
+
+~~~
+POSTPROC,<script1> <script2> ...
+~~~
+
+### `OUTPUTS`
+
+To specify the output file types to copy from the working folder, add the following line to `config.csv`:
+
+~~~
+OUTPUT,<ext1> <ext2> ...
+~~~
+
+The default output file extensions are `zip csv json`.
+
 ## Output
 
 The output folder will contain a folder for each input MDB file, with CSV files corresponding to each of the tables in the input MDB file.  CSV file names correspond to the MDB table name, with the `CYM` prefix removed and using lowercase letters.
@@ -58,7 +76,7 @@ An index file named `index.csv` is output containing information about each CSV 
 
 | database | table | csvname | size | rows |
 | -------- | ----- | ------- | ---- | ---- |
-| MDBNAME  | TABLENAME | csvname | n-chars | n-rows |
+| *mdbname*  | *CYMTABLENAME* | *tablename* | *n-chars* | *n-rows* |
 
 ## Docker Usage
 
