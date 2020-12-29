@@ -75,7 +75,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 		mdb-export "$DATABASE" "$TABLE" > "$CSVDIR/$CSV"
 		SIZE=$(echo $(wc -c $CSVDIR/$CSV) | cut -f1 -d' ' )
 		ROWS=$(echo $(wc -l $CSVDIR/$CSV) | cut -f1 -d' ' )
-		if [ "$ROWS" -gt 1 -o "${EXTRACT:-all}" == "all" ]; then
+		if [ "$ROWS" -gt 1 -o "${EXTRACT:-all}" = "all" ]; then
 			echo "$DATABASE,$TABLE,$CSV,$SIZE,$(($ROWS-1))" >> "$INDEX"
 		else
 			rm "$CSVDIR/$CSV"
