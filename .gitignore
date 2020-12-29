@@ -123,3 +123,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Darwin files
+.DS_Store
+
+# testing
+output_*/
