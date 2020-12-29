@@ -24,17 +24,17 @@ jobs:
 
       - name: Install needed tools
         run: |
-          sudo apt update -yq
+          sudo apt update -yqq
           sudo apt install mdbtools tzdata python3 zip -yqq 
 
       # Runs a single command using the runners shell
       - name: Run autotests
-        run: ./autotest.sh
+        run: ./autotest.sh | zip -q output-errors.zip autotest/output_*
 
       - name: Upload artifacts on failure
         uses: actions/upload-artifact@v2
         if: failure()
         with:
-          name: output_1-stderr.txt
+          name: output-errors.zip
           path: |
-            autotest/output_1/stderr
+            output-errors.zip
