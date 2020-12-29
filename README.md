@@ -1,4 +1,4 @@
-![CI](https://github.com/openfido/cyme-extract/workflows/CI/badge.svg)
+![master](https://github.com/openfido/cyme-extract/workflows/master/badge.svg) ![develop](https://github.com/openfido/cyme-extract/workflows/develop/badge.svg)
 
 # CYME Model Data Extractor
 
