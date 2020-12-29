@@ -31,7 +31,7 @@ if [ -z "$(which mdb-export)" ]; then
 	echo "Installing mdbtools"
 	apt update -qq
 	DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends tzdata
-	apt install mdbtools -yqq
+	apt install mdbtools zip -yqq
 fi
 
 TMP=/tmp/openfido-$$
@@ -81,9 +81,10 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 			rm "$CSVDIR/$CSV"
 		fi
 	done
+	(cd "$CSVDIR" ; zip "../$CSVDIR.zip" *.csv ; rm -rf "$CSVDIR")
 done
 
 echo version > version.csv
 echo $VERSION >> version.csv
 
-cp -R "$TMP"/* "$OPENFIDO_OUTPUT" 
+cp "$TMP"/*.{zip,csv} "$OPENFIDO_OUTPUT"
