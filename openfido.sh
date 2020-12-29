@@ -111,6 +111,7 @@ fi
 # install python3 if missing
 if [ "${POSTPROC:-}" != "" -a "$(which python3)" == "" ]; then
 	apt install python3 -yqq
+	python3 -m pip install -r postproc/requirements.txt
 fi
 
 # install tzdata if missing and needed
