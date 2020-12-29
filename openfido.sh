@@ -40,7 +40,7 @@ mkdir -p "$TMP"
 cd "$TMP"
 
 echo "Copying input files to working directory"
-cp -r "$OPENFIDO_INPUT"/* .
+cp -R "$OPENFIDO_INPUT"/* .
 
 if [ -f "config.csv" ]; then
 	FILES=$(grep ^FILES, config.csv | cut -f2 -d,)
@@ -71,7 +71,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	CSVDIR=${DATABASE%.*}
 	mkdir -p "$CSVDIR"
 	for TABLE in ${TABLES:-$(mdb-tables "$DATABASE")}; do
-		CSV=$(echo ${TABLE/CYM/} | tr A-Z a-z).csv
+		CSV=$(echo $TABLE | cut -c4- | tr A-Z a-z).csv
 		mdb-export "$DATABASE" "$TABLE" > "$CSVDIR/$CSV"
 		SIZE=$(echo $(wc -c $CSVDIR/$CSV) | cut -f1 -d' ' )
 		ROWS=$(echo $(wc -l $CSVDIR/$CSV) | cut -f1 -d' ' )
@@ -86,4 +86,4 @@ done
 echo version > version.csv
 echo $VERSION >> version.csv
 
-cp -r "$TMP"/* "$OPENFIDO_OUTPUT" 
+cp -R "$TMP"/* "$OPENFIDO_OUTPUT" 
