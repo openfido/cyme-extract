@@ -29,7 +29,7 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Run autotests
-        run: ./autotest.sh | ( zip autotest-output.zip autotest/output_*/* ; false )
+        run: ./autotest.sh || ( zip autotest-output.zip autotest/output_*/* ; false )
 
       - name: Upload artifacts on failure
         uses: actions/upload-artifact@v2
