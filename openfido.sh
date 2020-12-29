@@ -87,4 +87,4 @@ done
 echo version > version.csv
 echo $VERSION >> version.csv
 
-cp "$TMP"/*.{zip,csv} "$OPENFIDO_OUTPUT"
+mv $TMP/*.zip $TMP/*.csv "$OPENFIDO_OUTPUT"
