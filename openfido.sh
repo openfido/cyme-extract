@@ -22,6 +22,10 @@
 # current version of pipeline (increment this when a major change in functionality is deployed)
 VERSION=0  
 
+# defaults
+DEFAULT_OUTPUT="zip csv png glm json"
+
+
 # nounset: undefined variable outputs error message, and forces an exit
 set -u
 
@@ -74,7 +78,7 @@ if [ -f "config.csv" ]; then
 	TABLES=$(grep ^TABLES, config.csv | cut -f2 -d,)
 	EXTRACT=$(grep ^EXTRACT, config.csv | cut -f2 -d,)
 	TIMEZONE=$(grep ^TIMEZONE, config.csv | cut -f2 -d,)
-	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2 -d,)
+	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2 -d, | tr '\n' ' ')
 	OUTPUTS=$(grep ^OUTPUTS, config.csv | cut -f2 -d,)
 	echo "Config settings:"
 	echo "  FILES = ${FILES:-}"
@@ -90,7 +94,7 @@ else
 	echo "  EXTRACT = all"
 	echo "  TIMEZONE = UTC"
 	echo "  POSTPROC = "
-	echo "  OUTPUTS = zip csv png"
+	echo "  OUTPUTS = ${DEFAULT_OUTPUT}"
 fi
 
 # install python3 if missing
@@ -148,7 +152,7 @@ echo $VERSION >> version.csv
 
 # copy results to output
 echo "Moving results to $OPENFIDO_OUTPUT..."
-for EXT in ${OUTPUTS:-zip csv png}; do
+for EXT in ${OUTPUTS:-${DEFAULT_OUTPUT}}; do
 	for FILE in $(find . -name '*.'$EXT -print); do
 		echo "  $FILE ($(wc -c $FILE | awk '{print $1}') bytes)"
 		mv $FILE "$OPENFIDO_OUTPUT"
