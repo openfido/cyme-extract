@@ -135,6 +135,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
 		for PROC in ${POSTPROC}; do
+			chmod +x $SRCDIR/postproc/$PROC
 			(cd $CSVDIR ; $SRCDIR/postproc/$PROC)
 		done
 	fi
