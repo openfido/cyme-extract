@@ -54,7 +54,7 @@ function abspath() {
 SRCDIR=$(abspath ${0%/*})
 
 # startup notice
-echo "Starting $0 at $(date)"
+echo "Starting $0 at $(date)..."
 
 # display environment information
 echo "Environment settings:"
@@ -77,7 +77,7 @@ OLDWD=$PWD
 cd "$TMP"
 
 # copy input files to workdir
-echo "Copying files from input"
+echo "Copying files from $OPENFIDO_INPUT..."
 for FILE in $(ls -1 $OPENFIDO_INPUT/*); do
 	echo "  $FILE ($(wc -c $FILE | awk '{print $1}') bytes)"
 	cp -R "$FILE" .
@@ -105,12 +105,13 @@ else
 	echo "  EXTRACT = all"
 	echo "  TIMEZONE = UTC"
 	echo "  POSTPROC = "
-	echo "  OUTPUTS = zip csv json"
+	echo "  OUTPUTS = zip csv png"
 fi
 
 # install python3 if missing
 if [ "${POSTPROC:-}" != "" -a "$(which python3)" == "" ]; then
 	apt install python3 -yqq
+	python3 -m pip install -r postproc/requirements.txt
 fi
 
 # install tzdata if missing and needed
@@ -161,8 +162,8 @@ echo version > version.csv
 echo $VERSION >> version.csv
 
 # copy results to output
-echo "Moving results to $OPENFIDO_OUTPUT"
-for EXT in ${OUTPUTS:-zip csv json}; do
+echo "Moving results to $OPENFIDO_OUTPUT..."
+for EXT in ${OUTPUTS:-zip csv png}; do
 	for FILE in $(find . -name '*.'$EXT -print); do
 		echo "  $FILE ($(wc -c $FILE | awk '{print $1}') bytes)"
 		mv $FILE "$OPENFIDO_OUTPUT"
