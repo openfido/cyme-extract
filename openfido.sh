@@ -32,7 +32,7 @@ set -e
 set -x
 
 # path to postproc folder
-if [ "$0" == "openfido.sh" ]; then
+if [ "$0" = "openfido.sh" ]; then
 	SRCDIR=$PWD
 else
 	SRCDIR=$(cd $(echo $0 | sed 's/openfido.sh$//') ; pwd )
