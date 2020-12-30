@@ -105,7 +105,7 @@ else
 	echo "  EXTRACT = all"
 	echo "  TIMEZONE = UTC"
 	echo "  POSTPROC = "
-	echo "  OUTPUTS = zip csv json"
+	echo "  OUTPUTS = zip csv png"
 fi
 
 # install python3 if missing
@@ -163,7 +163,7 @@ echo $VERSION >> version.csv
 
 # copy results to output
 echo "Moving results to $OPENFIDO_OUTPUT..."
-for EXT in ${OUTPUTS:-zip csv json}; do
+for EXT in ${OUTPUTS:-zip csv png}; do
 	for FILE in $(find . -name '*.'$EXT -print); do
 		echo "  $FILE ($(wc -c $FILE | awk '{print $1}') bytes)"
 		mv $FILE "$OPENFIDO_OUTPUT"
