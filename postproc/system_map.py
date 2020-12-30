@@ -25,9 +25,6 @@ settings = config["value"]
 nodes = pd.read_csv("node.csv")
 section = pd.read_csv("section.csv")
 
-nodes.to_csv("../node.csv",index=False)
-section.to_csv("../section.csv",index=False)
-
 # generate the graph
 graph = nx.Graph()
 scale = float(settings["SCALE"])
