@@ -31,27 +31,8 @@ set -e
 # print command to stderr before executing it:
 set -x
 
-# generate absolute path from relative path
-function abspath() {
-    # $1     : relative filename
-    # return : absolute path
-    if [ -d "$1" ]; then
-        # dir
-        (cd "$1"; pwd)
-    elif [ -f "$1" ]; then
-        # file
-        if [[ $1 = /* ]]; then
-            echo "$1"
-        elif [[ $1 == */* ]]; then
-            echo "$(cd "${1%/*}"; pwd)/${1##*/}"
-        else
-            echo "$(pwd)/$1"
-        fi
-    fi
-}
-
 # path to executables
-SRCDIR=$(abspath ${0%/*})
+SRCDIR=$(cd ${0%/*};pwd)
 
 # startup notice
 echo "Starting $0 at $(date)..."
