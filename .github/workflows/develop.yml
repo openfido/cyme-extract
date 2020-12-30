@@ -26,7 +26,7 @@ jobs:
         run: |
           sudo apt update -yqq
           sudo apt install mdbtools tzdata python3 zip -yqq
-          python3 -m pip install pandas --user
+          python3 -m pip install scipy pandas networkx matplotlib --user
 
       # Runs a single command using the runners shell
       - name: Run autotests
