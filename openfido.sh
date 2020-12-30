@@ -32,7 +32,11 @@ set -e
 set -x
 
 # path to executables
-SRCDIR=$(cd ${0%/*};pwd)
+if [ "${SHELL:-}" == "/bin/bash" ]; then
+	SRCDIR=$(cd ${0%/*};pwd)
+else
+	SRCDIR=$PWD
+fi
 
 # startup notice
 echo "Starting $0 at $(date)..."
