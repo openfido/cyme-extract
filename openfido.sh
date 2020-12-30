@@ -31,12 +31,8 @@ set -e
 # print command to stderr before executing it:
 set -x
 
-# find the source directory
-if [ $0 = "openfido.sh" ]; then
-	SRCDIR=$PWD
-else
-	SRCDIR=$(cd ${0%/*};pwd)
-fi
+# path to executables
+SRCDIR=$(cd ${0%/*};pwd)
 
 # startup notice
 echo "Starting $0 at $(date)..."
