@@ -31,11 +31,11 @@ set -e
 # print command to stderr before executing it:
 set -x
 
-# path to executables
-if [ "${SHELL:-}" == "/bin/bash" ]; then
-	SRCDIR=$(cd ${0%/*};pwd)
-else
+# path to postproc folder
+if [ "$0" == "openfido.sh" ]; then
 	SRCDIR=$PWD
+else
+	SRCDIR=$(cd $(echo $0 | sed 's/openfido.sh$//') ; pwd )
 fi
 
 # startup notice
