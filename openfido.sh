@@ -31,8 +31,12 @@ set -e
 # print command to stderr before executing it:
 set -x
 
-# path to executables
-SRCDIR=$(cd ${0%/*};pwd)
+# path to postproc folder
+if [ "$0" = "openfido.sh" ]; then
+	SRCDIR=$PWD
+else
+	SRCDIR=$(cd $(echo $0 | sed 's/openfido.sh$//') ; pwd )
+fi
 
 # startup notice
 echo "Starting $0 at $(date)..."
@@ -90,9 +94,9 @@ else
 fi
 
 # install python3 if missing
-if [ "${POSTPROC:-}" != "" -a "$(which python3)" == "" ]; then
-	apt install python3 -yqq
-	python3 -m pip install -r postproc/requirements.txt
+if [ "${POSTPROC:-}" != "" -a "$(which python3)" = "" ]; then
+	apt install python3 python3-pip -yqq
+	python3 -m pip install -r $SRCDIR/postproc/requirements.txt
 fi
 
 # install tzdata if missing and needed
@@ -131,7 +135,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
 		for PROC in ${POSTPROC}; do
-			(cd $CSVDIR ; $SRCDIR/postproc/$PROC)
+			( cd $CSVDIR ; /bin/bash -c $SRCDIR/postproc/$PROC )
 		done
 	fi
 	(cd "$CSVDIR" ; zip -q "../$CSVDIR.zip" *.csv )
