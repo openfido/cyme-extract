@@ -3,13 +3,13 @@
 
 Configuration settings (config.csv):
 
-  - POSTPROC   must be set to "network_graph.py"
-  - FIGSIZE    PNG image dimensions (default "9x6")
-  - NODESIZE   size of nodes (default "10")
-  - NODECOLOR  color nodes (default "byphase")
-  - FONTSIZE   size of label font (default "8")
-  - ROOTNODE   root node (required for multipartite and shell graphs)
-  - LAYOUT     graph layout (default "nodexy")
+  - PNG_POSTPROC   must be set to "network_graph.py"
+  - PNG_FIGSIZE    PNG image dimensions (default "9x6")
+  - PNG_NODESIZE   size of nodes (default "10")
+  - PNG_NODECOLOR  color nodes (default "byphase")
+  - PNG_FONTSIZE   size of label font (default "8")
+  - PNG_ROOTNODE   root node (required for multipartite and shell graphs)
+  - PNG_LAYOUT     graph layout (default "nodexy")
 
 Supported layouts:
 
@@ -31,12 +31,12 @@ import matplotlib.pyplot as plt
 
 # load the configuration
 config = pd.DataFrame({
-	"FIGSIZE" : ["9x6"],
-	"FONTSIZE" : ["8"],
-	"NODESIZE" : ["10"],
-	"NODECOLOR" : ["byphase"],
-	"LAYOUT" : ["nodexy"],
-	"ROOTNODE" : [""],
+	"PNG_FIGSIZE" : ["9x6"],
+	"PNG_FONTSIZE" : ["8"],
+	"PNG_NODESIZE" : ["10"],
+	"PNG_NODECOLOR" : ["byphase"],
+	"PNG_LAYOUT" : ["nodexy"],
+	"PNG_ROOTNODE" : [""],
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 try:
@@ -61,10 +61,10 @@ graph = nx.Graph()
 labels = {}
 for index, node in nodes.iterrows():
 	labels[node["NodeId"]] = f"{node['NodeId']}\n"
-	if settings["LAYOUT"] == "nodexy":
+	if settings["PNG_LAYOUT"] == "nodexy":
 		graph.add_node(node["NodeId"],pos=(node["X"],node["Y"]))
-	elif settings["LAYOUT"] == "multipartite":
-		if settings["ROOTNODE"] == "":
+	elif settings["PNG_LAYOUT"] == "multipartite":
+		if settings["PNG_ROOTNODE"] == "":
 			raise Exception("cannot use LAYOUT='multipartite' layout without specifying value for ROOTNODE")
 		graph.add_node(node["NodeId"])
 	else:
@@ -77,7 +77,7 @@ for index, edge in section.iterrows():
 	fnode = edge["FromNodeId"]
 	tnode = edge["ToNodeId"]
 	graph.add_edge(fnode,tnode,color=color[phase],weight=weight[phase],phase=phase)
-if not settings["NODECOLOR"] or settings["NODECOLOR"] == "byphase":
+if not settings["PNG_NODECOLOR"] or settings["PNG_NODECOLOR"] == "byphase":
 	node_colors = {}
 	for node in graph.nodes:
 		phase = 0
@@ -87,19 +87,19 @@ if not settings["NODECOLOR"] or settings["NODECOLOR"] == "byphase":
 	nx.set_node_attributes(graph,node_colors)
 	node_colors = nx.get_node_attributes(graph,"color").values()
 else:
-	node_colors = settings["NODECOLOR"]
+	node_colors = settings["PNG_NODECOLOR"]
 
 # handle multipartite graph
-if settings["LAYOUT"] == "multipartite":
+if settings["PNG_LAYOUT"] == "multipartite":
 	dist = {}
 	for node in graph.nodes:
-		dist[node] = {"subset": nx.shortest_path_length(graph,node,settings["ROOTNODE"])}
+		dist[node] = {"subset": nx.shortest_path_length(graph,node,settings["PNG_ROOTNODE"])}
 	nx.set_node_attributes(graph,dist)
 	layout_options = {"align":"horizontal","scale":-1.0}
-if settings["LAYOUT"] == "shell":
+if settings["PNG_LAYOUT"] == "shell":
 	shells = {}
 	for node in graph.nodes:
-		dist = nx.shortest_path_length(graph,node,settings["ROOTNODE"])
+		dist = nx.shortest_path_length(graph,node,settings["PNG_ROOTNODE"])
 		if not dist in shells.keys():
 			shells[dist] = []
 		shells[dist].append(node)
@@ -112,15 +112,15 @@ else:
 	layout_options = {}
 
 # output to PNG
-size = settings["FIGSIZE"].split("x")
+size = settings["PNG_FIGSIZE"].split("x")
 plt.figure(figsize = (int(size[0]),int(size[1])))
 edges = graph.edges()
 colors = [graph[u][v]["color"] for u,v in edges]
 weights = [graph[u][v]["weight"] for u,v in edges]
-if settings["LAYOUT"] == "nodexy":
+if settings["PNG_LAYOUT"] == "nodexy":
 	pos = nx.get_node_attributes(graph,"pos")
-elif hasattr(nx,settings["LAYOUT"]+"_layout"):
-	call = getattr(nx,settings["LAYOUT"]+"_layout")
+elif hasattr(nx,settings["PNG_LAYOUT"]+"_layout"):
+	call = getattr(nx,settings["PNG_LAYOUT"]+"_layout")
 	pos = call(graph,**layout_options)
 else:
 	raise Exception("LAYOUT={settings['LAYOUT']} is invalid")
@@ -129,8 +129,8 @@ nx.draw(graph, pos,
 	edge_color = colors,
 	width = weights,
 	labels = labels,
-	node_size = int(settings["NODESIZE"]),
+	node_size = int(settings["PNG_NODESIZE"]),
 	node_color = node_colors,
-	font_size = int(settings["FONTSIZE"]),
+	font_size = int(settings["PNG_FONTSIZE"]),
 	)
 plt.savefig("../network_graph.png")

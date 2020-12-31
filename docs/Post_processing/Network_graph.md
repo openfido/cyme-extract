@@ -2,12 +2,12 @@
 
 The network graph postprocessor is invoked add the line `POSTPROC,network_graph.py` in `config.csv`.  Valid additional configuration settings are:
 
-  - `FIGSIZE`:    PNG image dimensions (default "9x6")
-  - `NODESIZE`:   size of nodes (default "10")
-  - `NODECOLOR`:  color nodes (default "byphase")
-  - `FONTSIZE`:   size of label font (default "8")
-  - `ROOTNODE`:   root node ID (required for `multipartite` and `shell` graphs)
-  - `LAYOUT`:     graph layout (default "nodexy")
+  - `PNG_FIGSIZE`:    PNG image dimensions (default "9x6")
+  - `PNG_NODESIZE`:   size of nodes (default "10")
+  - `PNG_NODECOLOR`:  color nodes (default "byphase")
+  - `PNG_FONTSIZE`:   size of label font (default "8")
+  - `PNG_ROOTNODE`:   root node ID (required for `multipartite` and `shell` graphs)
+  - `PNG_LAYOUT`:     graph layout (default "nodexy")
 
 Supported layouts:
 
