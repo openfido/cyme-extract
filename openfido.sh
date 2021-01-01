@@ -22,6 +22,27 @@
 # current version of pipeline (increment this when a major change in functionality is deployed)
 VERSION=0  
 
+# defaults
+DEFAULT_OUTPUT="zip csv png glm json"
+
+# error handling
+EXECNAME=$0
+TMP=/tmp/openfido-$$
+OLDWD=$PWD
+trap 'onexit $0 $LINENO $?' EXIT
+function onexit()
+{
+	cd $OLDWD
+	rm -rf $TMP
+	if [ $3 -ne 0 ]; then
+		echo "*** ERROR $3 ***"
+		grep -v '^+' $OPENFIDO_OUTPUT/stderr
+		echo "  $1($2): see $OPENFIDO_OUTPUT/stderr output for details"
+	fi
+	echo "Completed $1 at $(date)"
+	exit $3
+}
+
 # nounset: undefined variable outputs error message, and forces an exit
 set -u
 
@@ -35,7 +56,7 @@ set -x
 if [ "$0" = "openfido.sh" ]; then
 	SRCDIR=$PWD
 else
-	SRCDIR=$(cd $(echo $0 | sed 's/openfido.sh$//') ; pwd )
+	SRCDIR=$(cd $(echo "$0" | sed "s/$(basename $0)\$//") ; pwd )
 fi
 
 # startup notice
@@ -55,10 +76,8 @@ if [ -z "$(which mdb-export)" ]; then
 fi
 
 # work in new temporary directory
-TMP=/tmp/openfido-$$
 rm -rf $TMP
 mkdir -p "$TMP"
-OLDWD=$PWD
 cd "$TMP"
 
 # copy input files to workdir
@@ -74,15 +93,15 @@ if [ -f "config.csv" ]; then
 	TABLES=$(grep ^TABLES, config.csv | cut -f2 -d,)
 	EXTRACT=$(grep ^EXTRACT, config.csv | cut -f2 -d,)
 	TIMEZONE=$(grep ^TIMEZONE, config.csv | cut -f2 -d,)
-	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2 -d,)
+	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2 -d, | tr '\n' ' ')
 	OUTPUTS=$(grep ^OUTPUTS, config.csv | cut -f2 -d,)
 	echo "Config settings:"
-	echo "  FILES = ${FILES:-}"
-	echo "  TABLES = ${TABLES:-}"
-	echo "  EXTRACT = ${EXTRACT:-}"
-	echo "  TIMEZONE = ${TIMEZONE:-}"
+	echo "  FILES = ${FILES:-*.mdb}"
+	echo "  TABLES = ${TABLES:-*}"
+	echo "  EXTRACT = ${EXTRACT:-all}"
+	echo "  TIMEZONE = ${TIMEZONE:-UTC}"
 	echo "  POSTPROC = ${POSTPROC:-}"
-	echo "  OUTPUTS = ${OUTPUTS:-}"
+	echo "  OUTPUTS = ${OUTPUTS:-${DEFAULT_OUTPUT}}"
 else
 	echo "No 'config.csv', using default settings:"
 	echo "  FILES = *.mdb"
@@ -90,7 +109,7 @@ else
 	echo "  EXTRACT = all"
 	echo "  TIMEZONE = UTC"
 	echo "  POSTPROC = "
-	echo "  OUTPUTS = zip csv png"
+	echo "  OUTPUTS = ${DEFAULT_OUTPUT}"
 fi
 
 # install python3 if missing
@@ -135,7 +154,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
 		for PROC in ${POSTPROC}; do
-			( cd $CSVDIR ; /bin/bash -c $SRCDIR/postproc/$PROC )
+			( cd $CSVDIR ; $SHELL -c $SRCDIR/postproc/$PROC )
 		done
 	fi
 	(cd "$CSVDIR" ; zip -q "../$CSVDIR.zip" *.csv )
@@ -148,16 +167,10 @@ echo $VERSION >> version.csv
 
 # copy results to output
 echo "Moving results to $OPENFIDO_OUTPUT..."
-for EXT in ${OUTPUTS:-zip csv png}; do
+for EXT in ${OUTPUTS:-${DEFAULT_OUTPUT}}; do
 	for FILE in $(find . -name '*.'$EXT -print); do
 		echo "  $FILE ($(wc -c $FILE | awk '{print $1}') bytes)"
 		mv $FILE "$OPENFIDO_OUTPUT"
 	done
 done
-
-# cleanup
-cd $OLDWD
-rm -rf $TMP
-
-echo "Completed $0 at $(date)"
 
