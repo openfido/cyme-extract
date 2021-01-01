@@ -40,7 +40,7 @@ config = pd.DataFrame({
 	"GLM_NOMINAL_VOLTAGE" : [""],
 	"GLM_INCLUDE" : [""],
 	"GLM_DEFINE" : [""],
-	"GLM_DISTRIBUTE_LOAD_POSITION" : ["0.67"],
+	"GLM_DISTRIBUTED_LOAD_POSITION" : ["0.67"],
 	"GLM_ERRORS" : ["exception"],
 	"GLM_WARNINGS" : ["stdout"],
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
