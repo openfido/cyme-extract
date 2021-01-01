@@ -29,6 +29,7 @@ DEFAULT_OUTPUT="zip csv png glm json"
 EXECNAME=$0
 TMP=/tmp/openfido-$$
 OLDWD=$PWD
+LINENO="?"
 trap 'onexit $0 $LINENO $?' EXIT
 onexit()
 {
@@ -154,7 +155,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
 		for PROC in ${POSTPROC}; do
-			( cd $CSVDIR ; $SHELL -c $SRCDIR/postproc/$PROC )
+			( cd $CSVDIR ; sh -c $SRCDIR/postproc/$PROC )
 		done
 	fi
 	(cd "$CSVDIR" ; zip -q "../$CSVDIR.zip" *.csv )
