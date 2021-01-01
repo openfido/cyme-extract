@@ -421,7 +421,7 @@ def get_switch_phase_status(phases,state):
 	else:
 		return "OPEN"
 
-# add a swtich based on a link
+# add a switch based on a link
 def add_switch(switch_id,switch):
 	switch_name = glm.name(switch_id,"link")
 	phases = cyme_phase_name[int(switch["ClosedPhase"])]
@@ -431,6 +431,29 @@ def add_switch(switch_id,switch):
 		"phase_C_state" : get_switch_phase_status(phases,"C"),
 		"operating_mode" : "BANKED"
 		})
+
+# add a load
+def add_load(load_id,load):
+	section_id = table_get(sectiondevices,load_id,"SectionId")
+	section_name = glm.name(section_id,"node")
+	DeviceType = int(load["DeviceType"])
+	phase = cyme_phase_name[int(load["Phase"])]
+	if DeviceType in glm_devices.keys():
+		ConsumerClassId = load["ConsumerClassId"]
+		LoadValue1 = float(load["LoadValue1"])
+		LoadValue2 = float(load["LoadValue2"])
+		load_types = {"Z":"constant_impedance","I":"constant_current","P":"constant_power"}
+		if ConsumerClassId in load_types.keys():
+			return glm.object("load",section_name,{
+				f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (LoadValue1,LoadValue2),
+				})
+		elif ConsumerClassId in ["PQ","PV","SWING","SWINGPQ"]:
+			return glm.object("load",section_name,{
+				"bustype" : ConsumerClassId,
+				f"constant_impedance_{phase}" : "%.4g%+.4gj" % (LoadValue1,LoadValue2),
+				})
+	else:
+		warning(f"Load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
 
 #
 # Process networks
@@ -512,6 +535,8 @@ for network_id, network in networks.iterrows():
 		add_overhead_line_unbalanced(line_id,line)
 
 	# loads
+	for load_id, load in table_find(customerloads,NetworkId=network_id).iterrows():
+		add_load(load_id,load)
 
 	# distributed loads
 
