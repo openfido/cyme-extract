@@ -29,19 +29,21 @@ DEFAULT_OUTPUT="zip csv png glm json"
 EXECNAME=$0
 TMP=/tmp/openfido-$$
 OLDWD=$PWD
-trap 'onexit $0 $LINENO $?' EXIT
-function onexit()
-{
-	cd $OLDWD
-	rm -rf $TMP
-	if [ $3 -ne 0 ]; then
-		echo "*** ERROR $3 ***"
-		grep -v '^+' $OPENFIDO_OUTPUT/stderr
-		echo "  $1($2): see $OPENFIDO_OUTPUT/stderr output for details"
-	fi
-	echo "Completed $1 at $(date)"
-	exit $3
-}
+if [ "$SHELL" != "sh" ]; then
+	trap 'onexit $0 $LINENO $?' EXIT
+	function onexit()
+	{
+		cd $OLDWD
+		rm -rf $TMP
+		if [ $3 -ne 0 ]; then
+			echo "*** ERROR $3 ***"
+			grep -v '^+' $OPENFIDO_OUTPUT/stderr
+			echo "  $1($2): see $OPENFIDO_OUTPUT/stderr output for details"
+		fi
+		echo "Completed $1 at $(date)"
+		exit $3
+	}
+fi
 
 # nounset: undefined variable outputs error message, and forces an exit
 set -u
