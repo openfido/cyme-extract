@@ -9,4 +9,3 @@ PNG_LAYOUT,nodexy
 POSTPROC,write_glm.py
 GLM_NETWORK_PREFIX,IEEE13_
 GLM_INCLUDE,config.glm
-GLM_WARNINGS,stderr
