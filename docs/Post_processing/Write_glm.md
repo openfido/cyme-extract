@@ -9,6 +9,9 @@ Settings in the `config.csv` file that affect the `write_glm` processor include:
   - `GLM_NOMINAL_VOLTAGE` : specify the nominal voltage to use when generating node and link objects (default is none)
   - `GLM_INCLUDE` : specify the GLM file to include (default is none)
   - `GLM_DEFINE` : specify a GLM define flag (default is none)
+  - `GLM_DISTRIBUTED_LOAD_POSITION` : specify the position for a distributed load equivalent (default is 2/3 down the line)
+  - GLM_ERRORS" : specify the disposition of error messages (options are "stdout", "stderr", or the default "exception")
+  - GLM_WARNINGS" : specify the disposition of warning messages (options are "stderr", "exception" or the default "stdout")
 
 Note that the nominal voltage must be specified either in the `config.csv` or in the included GLM file.
 
