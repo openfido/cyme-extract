@@ -50,6 +50,10 @@ try:
 except:
 	pass
 settings = config["value"]
+print(f"Running network_graph.py:")
+for name, data in config.iterrows():
+	print(f"  {name} = {data['value']}")
+del config
 
 # load the model
 network = pd.read_csv("network.csv")
