@@ -50,15 +50,17 @@ The following global variables are set when the model is loaded in GridLAB-D:
  - `CYME_LOADFACTOR`: CYME network loading factor
  - `CYME_NETWORKID`: CYME network id
 
-## `GLM_NOMINAL_VOLTAGE`
+## Settings
+
+### `GLM_NOMINAL_VOLTAGE`
 
 The nominal voltage must be specified either in the `config.csv` or in the included GLM file.
 
-## `GLM_NETWORK_PREFIX`
+### `GLM_NETWORK_PREFIX`
 
 Each network in the CYME database will be output in a separate GLM file using the name of the network with the network prefix.
 
-## `GLM_NETWORK_MATCHES`
+### `GLM_NETWORK_MATCHES`
 
 The network pattern matching uses POSIX regular expressions to match network names starting with the first character of the network name.  Here are some useful examples:
 
@@ -73,23 +75,23 @@ The network pattern matching uses POSIX regular expressions to match network nam
 
 For details on POSIX pattern matching see [POSIX Regular Expression Documentation](https://en.wikibooks.org/wiki/Regular_Expressions/POSIX_Basic_Regular_Expressions).
 
-## `GLM_INCLUDE` 
+### `GLM_INCLUDE` 
 
 A single `#include` macro may be added after the `#define` specified by `GLM_DEFINE`.  This allows the define statement to control the behavior of the include file.
 
-## `GLM_DEFINE`
+### `GLM_DEFINE`
 
 A single `#define` may be specified to alter the behavior of the include file, object definitions, and modify statements.
 
-## `GLM_ERRORS`
+### `GLM_ERRORS`
 
 By default processing errors result in a exception that causes the post-processor to fail.  Errors can be set to write a message to either `stdout` or `stderr` without causing an exception.
 
-## `GLM_WARNINGS`
+### `GLM_WARNINGS`
 
 By default processing warnings result in output to `stdout`.  Warning can be set to write to `stderr` or cause raise exception that causes the post-processor to fail.
 
-## `GLM_MODIFY`
+### `GLM_MODIFY`
 
 A single CSV file may be processed after the GLM objects are created to enable modification of object properties, if desired.  The format of the modification file is as follows:
 
@@ -100,7 +102,7 @@ A single CSV file may be processed after the GLM objects are created to enable m
 <objectN>,<propertyN>,<valueN>
 ~~~
 
-# CYME Devices
+## CYME Devices
 
 The following CYME device types can be converted to GridLAB-D classes:
 
@@ -120,7 +122,7 @@ The following CYME device types can be converted to GridLAB-D classes:
 | `SpotLoad` |  20 | `load` |
 | `OverheadLineUnbalanced` |  23 | `overhead_line` |
 
-# Object Naming Convention
+## Object Naming Convention
 
 CYME record ids are converted to GridLAB-D object names using a name prefix based on the GridLAB-D object class, as follows:
 
@@ -176,3 +178,23 @@ CYME record ids are converted to GridLAB-D object names using a name prefix base
 | `voltdump` | `VD_` |
 
 If a class is not found, the prefix `Z<num>_` is used where `<num>` is a number based on the size of the class in the class name dictionary at the time the new prefix was create.
+
+## Example
+
+The following example converts the `IEEE13.mdb` file to GridLAB-D `glm` format:
+
+The file `config.csv` specifies the non-empty tables to extract and convert to GLM, the nominal voltage to use, and the modification file to use.
+
+~~~
+TABLES,CYMNETWORK CYMHEADNODE CYMNODE CYMSECTION CYMSECTIONDEVICE CYMOVERHEADBYPHASE CYMOVERHEADLINEUNBALANCED CYMEQCONDUCTOR CYMEQGEOMETRICALARRANGEMENT CYMEQOVERHEADLINEUNBALANCED CYMSWITCH CYMCUSTOMERLOAD CYMSHUNTCAPACITOR CYMTRANSFORMER CYMEQTRANSFORMER CYMREGULATOR
+EXTRACT,non-empty
+POSTPROC,write_glm.py
+GLM_NOMINAL_VOLTAGE,2.40178 kV
+GLM_MODIFY,modify.csv
+~~~
+
+The file `modify.csv` specifies that the shunt capacitor `L675CAP` on phase A switch is to be removed.
+
+~~~
+CA_L675CAP,switchA,OPEN
+~~~
