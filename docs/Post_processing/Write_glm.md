@@ -185,6 +185,7 @@ The following example converts the `IEEE13.mdb` file to GridLAB-D `glm` format:
 
 The file `config.csv` specifies the non-empty tables to extract and convert to GLM, the nominal voltage to use, and the modification file to use.
 
+File `config.csv`:
 ~~~
 TABLES,CYMNETWORK CYMHEADNODE CYMNODE CYMSECTION CYMSECTIONDEVICE CYMOVERHEADBYPHASE CYMOVERHEADLINEUNBALANCED CYMEQCONDUCTOR CYMEQGEOMETRICALARRANGEMENT CYMEQOVERHEADLINEUNBALANCED CYMSWITCH CYMCUSTOMERLOAD CYMSHUNTCAPACITOR CYMTRANSFORMER CYMEQTRANSFORMER CYMREGULATOR
 EXTRACT,non-empty
@@ -193,8 +194,9 @@ GLM_NOMINAL_VOLTAGE,2.40178 kV
 GLM_MODIFY,modify.csv
 ~~~
 
-The file `modify.csv` specifies that the shunt capacitor `L675CAP` on phase A switch is to be removed.
+The file `modify.csv` specifies that the shunt capacitor `L675CAP` on phase A is to be removed.
 
+File `modify.csv`:
 ~~~
 CA_L675CAP,switchA,OPEN
 ~~~

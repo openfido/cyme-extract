@@ -136,6 +136,11 @@ elif [ ! -z "${TIMEZONE:-}" ]; then
 	done
 fi
 
+# special case for files needed by glm converter
+if [ "$TABLES" = "glm" -a -x "$SRCDIR/postproc/write_glm.py" ]; then
+	TABLES=$($SRCDIR/postproc/write_glm.py --cyme-tables)
+fi
+
 # process the input files
 INDEX=index.csv
 echo "database,table,csvname,size,rows" > "$INDEX"

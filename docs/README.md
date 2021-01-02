@@ -26,7 +26,7 @@ To specify which tables are to be extracted, add the following line to `config.c
 TABLES,<table-list>
 ~~~
 
-The default is to extract all tables in the MDB file.
+The default 'all' will extract all tables in the MDB file.  Use the value `glm` to extract all the files needed by the `write_glm.py` post-processor.
 
 ### `EXTRACT`
 

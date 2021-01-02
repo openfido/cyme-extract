@@ -13,6 +13,28 @@ import re
 import hashlib
 import csv
 
+cyme_tables = [
+	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
+	"CYMOVERHEADBYPHASE","CYMOVERHEADLINEUNBALANCED","CYMEQCONDUCTOR",
+	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
+	"CYMSWITCH","CYMCUSTOMERLOAD","CYMSHUNTCAPACITOR",
+	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR",
+	]
+if len(sys.argv) > 1:
+	if sys.argv[1] == '--help':
+		print("Syntax: write_glm.py [options]")
+		print("Options:")
+		print("  --help          get this help")
+		print("  --cyme-tables   get list of CYME tables required to convert MDB to GLM")
+		quit(0)
+	elif sys.argv[1] == '--cyme-tables':
+		print(" ".join(cyme_tables))
+		quit(0)
+	else:
+		print(f"'{sys.argv[1]}' is not valid")
+		quit(1)
+
+
 #
 # Application information
 #
