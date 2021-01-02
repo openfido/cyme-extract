@@ -27,8 +27,8 @@ The general structure of the output GLM is as follows:
 The following global variables are set when the model is loaded in GridLAB-D:
 
 ### Application information
- - `APP_COMMAND=/Users/dchassin/Documents/GitHub/openfido/cyme-extract/postproc/write_glm.py
- - `APP_VERSION=0
+ - `APP_COMMAND`: full local pathname to program used to create GLM file
+ - `APP_VERSION`: version number of the application used to create GLM file
 
 ### GIT information
  - `GIT_PROJECT`: github project remote origin
@@ -71,7 +71,7 @@ The network pattern matching uses POSIX regular expressions to match network nam
   - `.*[0-9]`: match all networks containing the digits 0 through 9
   - `.*[0-9]$`: match all networks ending with the digits 0 through 9
 
-For details on POSIX pattern matching see [[https://en.wikibooks.org/wiki/Regular_Expressions/POSIX_Basic_Regular_Expressions]].
+For details on POSIX pattern matching see [POSIX Regular Expression Documentation](https://en.wikibooks.org/wiki/Regular_Expressions/POSIX_Basic_Regular_Expressions).
 
 ## `GLM_INCLUDE` 
 
@@ -105,7 +105,7 @@ A single CSV file may be processed after the GLM objects are created to enable m
 The following CYME device types can be converted to GridLAB-D classes:
 
 | CYME Device | CYME Device Type | GridLAB-D Class |
-| ----------- | ---------------- | --------------- |
+| :---------: | :--------------: | :-------------: |
 | `UndergroundLine` | 1 | `underground_line` |
 | `OverheadLine` | 2 | `overhead_line` |
 | `OverheadByPhase` | 3 | `overhead_line` |
@@ -125,7 +125,7 @@ The following CYME device types can be converted to GridLAB-D classes:
 CYME record ids are converted to GridLAB-D object names using a name prefix based on the GridLAB-D object class, as follows:
 
 | Class | Prefix |
-| ----- | ------ |
+| :---: | :----: |
 | `billdump` | `BD_` |
 | `capacitor` | `CA_` |
 | `currdump` | `CD_` |
@@ -175,5 +175,4 @@ CYME record ids are converted to GridLAB-D object names using a name prefix base
 | `volt_var_control` | `VV_` |
 | `voltdump` | `VD_` |
 
-If a class is not found, the prefix `Z<num>_` is used where `<num>` is the ordinal number of the class in the class name dictionary.
-  
+If a class is not found, the prefix `Z<num>_` is used where `<num>` is a number based on the size of the class in the class name dictionary at the time the new prefix was create.
