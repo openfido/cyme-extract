@@ -73,7 +73,7 @@ if [ -z "$(which mdb-export)" ]; then
 	echo "Installing mdbtools"
 	apt update -qq
 	DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends tzdata
-	apt install mdbtools zip -yqq
+	apt install git mdbtools zip -yqq
 fi
 
 # work in new temporary directory
