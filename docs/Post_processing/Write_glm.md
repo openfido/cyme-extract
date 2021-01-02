@@ -4,17 +4,61 @@ The `write_glm` postprocessor can be used by adding the line `POSTPROC,write_glm
 
 Settings in the `config.csv` file that affect the `write_glm` processor include:
 
-  - `GLM_NETWORK_PREFIX` : specify the file name prefix to use for the output GLM file (default is `network_`)
-  - `GLM_NETWORK_MATCHES` : specify the network name pattern to select networks to output (default is all)
-  - `GLM_NOMINAL_VOLTAGE` : specify the nominal voltage to use when generating node and link objects (default is none)
-  - `GLM_INCLUDE` : specify the GLM file to include (default is none)
-  - `GLM_DEFINE` : specify a GLM define flag (default is none)
-  - `GLM_ERRORS` : specify the disposition of error messages (options are "stdout", "stderr", or the default "exception")
-  - `GLM_WARNINGS` : specify the disposition of warning messages (options are "stderr", "exception" or the default "stdout")
+  - `GLM_NETWORK_PREFIX` : file name prefix to use for the output GLM file (default is `network_`)
+  - `GLM_NETWORK_MATCHES` : network name pattern to select networks to output (default is all)
+  - `GLM_NOMINAL_VOLTAGE` : nominal voltage to use when generating node and link objects (default is none)
+  - `GLM_INCLUDE` : GLM file to include (default is none)
+  - `GLM_DEFINE` : GLM define flag, may be used only once (default is none)
+  - `GLM_ERRORS` : disposition of error messages (options are "stdout", "stderr", or the default "exception")
+  - `GLM_WARNINGS` : disposition of warning messages (options are "stderr", "exception" or the default "stdout")
+  - `GLM_MODIFY` : name of model modification records to load after creating model
 
-Note that the nominal voltage must be specified either in the `config.csv` or in the included GLM file.
+The general structure of the output GLM is as follows:
+
+1. `#define` statement providing information about the context in which the GLM model was created.
+2. `#define` statement from the `GLM_DEFINE` setting, if any.
+3. `#include` statement from the `GLM_INCLUDE` setting, if any.
+4. `powerflow` module statement to select the `NR` solver.
+5. `object` definitions from the CYME database
+6. `modify` statements from the `GLM_MODIFY` setting, if any.
+
+## Globals
+
+The following global variables are set when the model is loaded in GridLAB-D:
+
+### Application information
+ - `APP_COMMAND=/Users/dchassin/Documents/GitHub/openfido/cyme-extract/postproc/write_glm.py
+ - `APP_VERSION=0
+
+### GIT information
+ - `GIT_PROJECT`: github project remote origin
+ - `GIT_COMMIT`: github project commit id
+ - `GIT_BRANCH`: github branch name
+
+### GLM information
+ - `GLM_PATHNAME`: local GLM file name
+ - `GLM_CREATED`: date GLM file was created
+ - `GLM_USER`: user name when GLM was created
+ - `GLM_WORKDIR`: working directory when GLM was created
+ - `GLM_LANG`: OS language when GLM was created, if any
+
+### CYME information
+ - `CYME_MDBNAME`: CYME MDB name
+ - `CYME_VERSION`: CYME MDB version
+ - `CYME_CREATED`: date CYME MDB was created
+ - `CYME_MODIFIED`: date CYME MDB was last modified
+ - `CYME_LOADFACTOR`: CYME network loading factor
+ - `CYME_NETWORKID`: CYME network id
+
+## `GLM_NOMINAL_VOLTAGE`
+
+The nominal voltage must be specified either in the `config.csv` or in the included GLM file.
+
+## `GLM_NETWORK_PREFIX`
 
 Each network in the CYME database will be output in a separate GLM file using the name of the network with the network prefix.
+
+## `GLM_NETWORK_MATCHES`
 
 The network pattern matching uses POSIX regular expressions to match network names starting with the first character of the network name.  Here are some useful examples:
 
@@ -28,3 +72,108 @@ The network pattern matching uses POSIX regular expressions to match network nam
   - `.*[0-9]$`: match all networks ending with the digits 0 through 9
 
 For details on POSIX pattern matching see [[https://en.wikibooks.org/wiki/Regular_Expressions/POSIX_Basic_Regular_Expressions]].
+
+## `GLM_INCLUDE` 
+
+A single `#include` macro may be added after the `#define` specified by `GLM_DEFINE`.  This allows the define statement to control the behavior of the include file.
+
+## `GLM_DEFINE`
+
+A single `#define` may be specified to alter the behavior of the include file, object definitions, and modify statements.
+
+## `GLM_ERRORS`
+
+By default processing errors result in a exception that causes the post-processor to fail.  Errors can be set to write a message to either `stdout` or `stderr` without causing an exception.
+
+## `GLM_WARNINGS`
+
+By default processing warnings result in output to `stdout`.  Warning can be set to write to `stderr` or cause raise exception that causes the post-processor to fail.
+
+## `GLM_MODIFY`
+
+A single CSV file may be processed after the GLM objects are created to enable modification of object properties, if desired.  The format of the modification file is as follows:
+
+~~~
+<object1>,<property1>,<value1>
+<object2>,<property2>,<value2>
+...
+<objectN>,<propertyN>,<valueN>
+~~~
+
+# CYME Devices
+
+The following CYME device types can be converted to GridLAB-D classes:
+
+| CYME Device | CYME Device Type | GridLAB-D Class |
+| ----------- | ---------------- | --------------- |
+| `UndergroundLine` | 1 | `underground_line` |
+| `OverheadLine` | 2 | `overhead_line` |
+| `OverheadByPhase` | 3 | `overhead_line` |
+| `Regulator` |  4 | `regulator` |
+| `Transformer` |  5 | `transformer` |
+| `Breaker` |  8 | `breaker` |
+| `Recloser` |  10 | `recloser` |
+| `Sectionalizer` |  12 | `sectionalizer` |
+| `Switch` |  13 | `switch` |
+| `Fuse` |  14 | `fuse` |
+| `ShuntCapacitor` |  17 | `capacitor` |
+| `SpotLoad` |  20 | `load` |
+| `OverheadLineUnbalanced` |  23 | `overhead_line` |
+
+# Object Naming Convention
+
+CYME record ids are converted to GridLAB-D object names using a name prefix based on the GridLAB-D object class, as follows:
+
+| Class | Prefix |
+| ----- | ------ |
+| `billdump` | `BD_` |
+| `capacitor` | `CA_` |
+| `currdump` | `CD_` |
+| `emissions` | `EM_` |
+| `fault_check` | `FC_` |
+| `frequency_gen` | `FG_` |
+| `fuse` | `FS_` |
+| `impedance_dump` | `ID_` |
+| `line` | `LN_` |
+| `line_configuration` | `LC_` |
+| `line_sensor` | `LS_` |
+| `line_spacing` | `LG_` |
+| `link` | `LK_` |
+| `load` | `LD_` |
+| `load_tracker` | `LT_` |
+| `meter` | `ME_` |
+| `motor` | `MO_` |
+| `node` | `ND_` |
+| `overhead_line` | `OL` |
+| `overhead_line_conductor` | `OC_` |
+| `pole` | `PO_` |
+| `pole_configuration` | `PC_` |
+| `power_metrics` | `PM_` |
+| `powerflow_library` | `PL_` |
+| `powerflow_object` | `PO_` |
+| `pqload` | `PQ_` |
+| `recloser` | `RE_` |
+| `regulator` | `RG_` |
+| `regulator_configuration` | `RC_` |
+| `restoration` | `RS_` |
+| `sectionalizer` | `SE_` |
+| `series_reactor` | `SR_` |
+| `substation` | `SS_` |
+| `switch` | `SW_` |
+| `switch_coordinator` | `SC_` |
+| `transformer` | `TF_` |
+| `transformer_configuration` | `TC_` |
+| `triplex_line` | `XL_` |
+| `triplex_line_conductor` | `XC_` |
+| `triplex_line_configuration` | `XG_` |
+| `triplex_load` | `XD_` |
+| `triplex_meter` | `XM_` |
+| `triplex_node` | `XN_` |
+| `underground_line` | `UL_` |
+| `underground_line_conductor` | `UC_` |
+| `vfd` | `VF_` |
+| `volt_var_control` | `VV_` |
+| `voltdump` | `VD_` |
+
+If a class is not found, the prefix `Z<num>_` is used where `<num>` is the ordinal number of the class in the class name dictionary.
+  
