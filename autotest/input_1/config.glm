@@ -1,7 +1,26 @@
+// convert settings.csv to settings.glm 
+// #input "settings.csv" -f config -t config
 #exec awk 'BEGIN{FS=","} { print "#define",$1 "=" $2}' < settings.csv >settings.glm
 #include "settings.glm"
-clock {
+
+// set a clock
+clock 
+{
 	timezone "${TIMEZONE}";
 	starttime "${STARTTIME}";
 	stoptime "${STOPTIME}";
 }
+
+module powerflow;
+
+#if ${SOLUTIONDUMP:-no} == yes
+object voltdump 
+{
+	filename "voltdump.csv";
+}
+
+object currdump 
+{
+	filename "currdump.csv";
+}
+#endif
