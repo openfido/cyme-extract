@@ -92,7 +92,7 @@ config = pd.DataFrame({
 	"GLM_DEFINE" : [""],
 	"GLM_ERRORS" : ["exception"],
 	"GLM_WARNINGS" : ["stdout"],
-	"GLM_MODIFY" : ["modify.csv"],
+	"GLM_MODIFY" : [""],
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 try:
