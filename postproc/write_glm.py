@@ -12,6 +12,9 @@ from math import sqrt
 import re
 import hashlib
 import csv
+import pprint
+pp = pprint.PrettyPrinter(indent=4,compact=True)
+import traceback
 
 cyme_tables = [
 	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
@@ -80,6 +83,11 @@ def error(*args):
 		print(" ","\n  ".join(args),file=sys.stderr)
 	else:
 		raise Exception("\n".join(args))
+
+def format_exception(errmsg,data):
+	tb = str(traceback.format_exc().replace('\n','\n  '))
+	dd = str(pp.pformat(data.to_dict()).replace('\n','\n  '))
+	return "\n  " + tb + " =\n  " + dd
 
 #
 # Load user configuration ()
@@ -173,11 +181,13 @@ class GLM:
 		self.objects = {}
 
 	def __del__(self):
-		if self.object():
+		if self.objects:
 			self.error("glm object was deleted before objects were output")
 
 	def name(self,name,oclass=None):
-		if oclass:
+		if type(name) is list: # composite name
+			name = "/".join(name).replace(".","").replace(":","")[0:63] # disallow special name characters
+		if oclass: # name prefix based on class
 			if not oclass in self.prefix.keys(): # name prefix not found
 				prefix = f"Z{len(self.prefix.keys())}_"
 				self.prefix[oclass] = prefix
@@ -185,9 +195,9 @@ class GLM:
 			else:
 				prefix = self.prefix[oclass]
 			name = prefix + name
-		elif "0" <= name[0] <= "9":
+		elif "0" <= name[0] <= "9": # fix names that start with digits
 			name = "_" + name
-		return name.replace(" ","_")
+		return name.replace(" ","_") # remove white spaces from names
 
 	def write(self,line):
 		print(line,file=self.fh)
@@ -254,7 +264,10 @@ class GLM:
 		for key, value in parameters.items():
 			if not overwrite and key in obj.keys() and obj[key] != value:
 				raise Exception(f"object property '{key}={obj[key]}' merge conflicts with '{key}={value}'")
-			obj[key] = value
+			if value == None and key in obj.keys():
+				del obj[key]
+			else:
+				obj[key] = value
 		obj["class"] = oclass
 		return obj
 
@@ -402,10 +415,7 @@ def add_link(section_id,section):
 			node_links[from_node_id].append(device_id)
 			node_links[to_node_id].append(device_id)
 		else:
-			warning(
-				f"{cyme_mdbname}@{network_id}: device {device_id}: device type {device_type} ({cyme_devices[device_type]}) has no corresponding GLM object",
-				f"{cyme_mdbname}@{network_id}: omitting device {device_id} is likely to change the results and/or cause solver issues",
-				)
+			warning(f"{cyme_mdbname}@{network_id}: {cyme_devices[device_type]} on section {section_id} has no corresponding GLM object")
 	return device_dict
 
 # add node to glm file
@@ -580,7 +590,7 @@ def add_load(load_id,load):
 				f"constant_impedance_{phase}" : "%.4g%+.4gj" % (LoadValue1,LoadValue2),
 				})
 	else:
-		warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
+		raise Exception(f"load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
 
 # add a capacitor
 def add_capacitor(capacitor_id,capacitor):
@@ -606,42 +616,56 @@ def add_capacitor(capacitor_id,capacitor):
 
 # add a transformer
 def add_transformer(transformer_id, transformer):
-	warning(f"{cyme_mdbname}@{network_id}: unable to convert transformer '{transformer_id}' using data {transformer.to_dict()}")
-	# DeviceType = int(transformer["DeviceType"])
-	# equipment_id = transformer["EquipmentId"]
-	# equipment = eqtransformers.loc[equipment_id]
-	# NominalRatingKVA = float(equipment["NominalRatingKVA"])
-	# PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
-	# SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
-	# if PrimaryVoltageKVLL == SecondaryVoltageKVLL:
-	# 	SecondaryVoltageKVLL += 0.001
-	# 	warning(f"{cyme_mdbname}@{network_id}: transformer {transformer_id} PrimaryVoltageKVLL = SecondaryVoltageKVLL, adjusting SecondaryVoltageKVLL by 1V")
-	# PosSeqImpedancePercent = float(equipment["PosSeqImpedancePercent"])
-	# XRRatio = float(equipment["XRRatio"])
-	# if XRRatio == 0.0:
-	# 	r = 0.000333
-	# 	x = 0.00222
-	# 	warning(f"{cyme_mdbname}@{network_id}:  transformer {transformer_id} XRRatio is zero, using default impedance {'%.4g%+.4gj' % (r,x)}")
-	# else:
-	# 	r = XRRatio / 100.0 / sqrt(1+XRRatio**2)
-	# 	x = r * XRRatio
-	# nominal_rating = "%.4g kVA" % (NominalRatingKVA)
-	# primary_voltage = "%.4g kV" % (PrimaryVoltageKVLL/sqrt(3.0))
-	# secondary_voltage = "%.4g kV" % (SecondaryVoltageKVLL/sqrt(3.0))
-	# configuration_name = glm.name("transformer_configuration_")
-	# impedance = "%.4g%+.4gj" % (r,x)
-	# configuration_name = glm.name(configuration,)
-	# return glm.object("transformer_configure",transformer_id,{
-	# 	"NominalRatingKVA" : ,
-	# 	"PrimaryRatedCapacity" : , primary_voltage
-	# 	"SecondaryRatedCapacity" : secondary_voltage,
-	# 	"impedance" : "%.4g%+.4gj" % (r,x),
-	# 	})
-	return
+	DeviceType = int(transformer["DeviceType"])
+	equipment_id = transformer["EquipmentId"]
+	equipment = eqtransformers.loc[equipment_id]
+	NominalRatingKVA = float(equipment["NominalRatingKVA"])
+	PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
+	SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
+	if PrimaryVoltageKVLL == SecondaryVoltageKVLL:
+		SecondaryVoltageKVLL += 0.001
+		warning(f"{cyme_mdbname}@{network_id}: transformer {transformer_id} PrimaryVoltageKVLL = SecondaryVoltageKVLL, adjusting SecondaryVoltageKVLL by 1V")
+	PosSeqImpedancePercent = float(equipment["PosSeqImpedancePercent"])
+	XRRatio = float(equipment["XRRatio"])
+	if XRRatio == 0.0:
+		r = 0.000333
+		x = 0.00222
+		warning(f"{cyme_mdbname}@{network_id}:  transformer {transformer_id} XRRatio is zero, using default impedance {'%.4g%+.4gj' % (r,x)}")
+	else:
+		r = XRRatio / 100.0 / sqrt(1+XRRatio**2)
+		x = r * XRRatio
+	nominal_rating = "%.4gkVA" % (NominalRatingKVA)
+	primary_voltage = "%.4gkV" % (PrimaryVoltageKVLL/sqrt(3.0))
+	secondary_voltage = "%.4gkV" % (SecondaryVoltageKVLL/sqrt(3.0))
+	configuration_name = glm.name([nominal_rating,primary_voltage,secondary_voltage,"R%.4g"%(r),"X%4g"%(x)], "transformer_configuration")
+	glm.object("transformer_configuration", configuration_name, {
+		"connect_type" : "WYE_WYE",
+		"install_type" : "PADMOUNT",
+		"power_rating" : nominal_rating,
+		"primary_voltage" : primary_voltage,
+		"secondary_voltage" : secondary_voltage,
+		"resistance" : r,
+		"reactance" : x,
+		})
+	link_name = glm.name(transformer_id,"link")
+	return glm.object("transformer", link_name, {
+		"nominal_voltage" : None,
+		"phases" : "".join(sorted(set(glm.objects[link_name]["phases"] + "N"))),
+		"configuration" : configuration_name,
+		})
 
 # add a regulator
 def add_regulator(regulator_id, regulator):
-	return
+	raise Exception(" add_regulator not supported yet")
+
+# general add function
+def add(oclass,id,data):
+	try:
+		call = globals()["add_"+oclass]
+		return call(id,data)
+	except Exception as errmsg:
+		warning(f"{cyme_mdbname}@{network_id}: unable to add {oclass} {id}: {errmsg} {format_exception(errmsg,data)}")
+		pass 	
 
 #
 # Load all the model tables (table names have an "s" appended)
@@ -738,39 +762,40 @@ for network_id, network in networks.iterrows():
 
 	# links
 	for section_id, section in table_find(sections,NetworkId=network_id).iterrows():
-		device_dict.update(add_link(section_id,section))
+		links = add("link",section_id,section)
+		if links:
+			device_dict.update(links)
 
 	# nodes
 	for node_id in node_dict.keys():
-		node_dict[node_id] = add_node(node_id,node_links,device_dict)
+		node_dict[node_id] = add_node(node_id, node_links, device_dict)
 
 	# overhead lines
-	for line_id, line in table_find(overheadbyphases,NetworkId=network_id).iterrows():
-		add_overhead_line(line_id,line)
+	for id, data in table_find(overheadbyphases,NetworkId=network_id).iterrows():
+		add("overhead_line", id, data)
 
 	# unbalanced overhead lines
-	for line_id, line in table_find(overheadlineunbalanceds,NetworkId=network_id).iterrows():
-		add_overhead_line_unbalanced(line_id,line)
+	for id, data in table_find(overheadlineunbalanceds,NetworkId=network_id).iterrows():
+		add("overhead_line_unbalanced", id, data)
 
 	# loads
-	for load_id, load in table_find(customerloads,NetworkId=network_id).iterrows():
-		add_load(load_id,load)
+	for id, data in table_find(customerloads,NetworkId=network_id).iterrows():
+		add("load", id, data)
 
 	# transformers
-	for transformer_id, transformer in table_find(transformers,NetworkId=network_id).iterrows():
-		add_transformer(transformer_id,transformer)
+	for id, data in table_find(transformers,NetworkId=network_id).iterrows():
+		add("transformer", id, data)
 
 	# regulators
-	for regulator_id, regulator in table_find(regulators,NetworkId=network_id).iterrows():
-		add_transformer(regulator_id,regulator)
+	for id, data in table_find(regulators,NetworkId=network_id).iterrows():
+		add("regulator", id, data)
 
 	# capacitors
-	for cap_id, cap in table_find(shuntcapacitors,NetworkId=network_id).iterrows():
-		add_capacitor(cap_id,cap)
-
+	for id, data in table_find(shuntcapacitors,NetworkId=network_id).iterrows():
+		add("capacitor", id, data)
 	# switches
-	for switch_id, switch in table_find(switchs,NetworkId=network_id).iterrows():
-		add_switch(switch_id,switch)
+	for id, data in table_find(switchs,NetworkId=network_id).iterrows():
+		add("switch", id, data)
 
 	glm.close()
 
