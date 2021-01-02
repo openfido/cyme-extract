@@ -163,8 +163,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 done
 
 # output version info
-echo version > version.csv
-echo $VERSION >> version.csv
+echo version,$VERSION >version.csv
 
 # copy results to output
 echo "Moving results to $OPENFIDO_OUTPUT..."
