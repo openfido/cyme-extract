@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+app_version = 0
+
 import sys, os
 import subprocess
 import glob
@@ -8,12 +10,13 @@ import networkx as nx
 import matplotlib.pyplot as plt
 from math import sqrt
 import re
+import hashlib
+import csv
 
 #
-# Version information
+# Application information
 #
 app_command = os.path.abspath(sys.argv[0])
-app_version = "0.0.1"
 app_workdir = os.getenv("PWD")
 app_path = "/"+"/".join(app_command.split("/")[0:-1])
 
@@ -27,6 +30,11 @@ git_project = command("git config --local remote.origin.url")
 git_commit = command("git rev-parse HEAD")
 git_branch = command("git rev-parse --abbrev-ref HEAD")
 os.chdir(app_workdir)
+
+#
+# CYME information
+#
+cyme_mdbname = os.getenv("PWD").split("/")[-1]
 
 #
 # Warning/error handling
@@ -62,6 +70,7 @@ config = pd.DataFrame({
 	"GLM_DEFINE" : [""],
 	"GLM_ERRORS" : ["exception"],
 	"GLM_WARNINGS" : ["stdout"],
+	"GLM_MODIFY" : ["modify.csv"],
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 try:
@@ -78,12 +87,63 @@ settings = config["value"]
 print(f"Running write_glm.py:")
 for name, data in config.iterrows():
 	print(f"  {name} = {data['value']}")
-del config
 
 #
 # GLM file builder
 #
 class GLM:
+
+	prefix = {
+		# known powerflow class in gridlabd
+		"billdump" : "BD_",
+		"capacitor" : "CA_",
+		"currdump" : "CD_",
+		"emissions" : "EM_",
+		"fault_check" : "FC_",
+		"frequency_gen" : "FG_",
+		"fuse" : "FS_",
+		"impedance_dump" : "ID_",
+		"line" : "LN_",
+		"line_configuration" : "LC_",
+		"line_sensor" : "LS_",
+		"line_spacing" : "LG_",
+		"link" : "LK_",
+		"load" : "LD_",
+		"load_tracker" : "LT_",
+		"meter" : "ME_",
+		"motor" : "MO_",
+		"node" : "ND_",
+		"overhead_line" : "OL",
+		"overhead_line_conductor" : "OC_",
+		"pole" : "PO_",
+		"pole_configuration" : "PC_",
+		"power_metrics" : "PM_",
+		"powerflow_library" : "PL_",
+		"powerflow_object" : "PO_",
+		"pqload" : "PQ_",
+		"recloser" : "RE_",
+		"regulator" : "RG_",
+		"regulator_configuration" : "RC_",
+		"restoration" : "RS_",
+		"sectionalizer" : "SE_",
+		"series_reactor" : "SR_",
+		"substation" : "SS_",
+		"switch" : "SW_",
+		"switch_coordinator" : "SC_",
+		"transformer" : "TF_",
+		"transformer_configuration" : "TC_",
+		"triplex_line" : "XL_",
+		"triplex_line_conductor" : "XC_",
+		"triplex_line_configuration" : "XG_",
+		"triplex_load" : "XD_",
+		"triplex_meter" : "XM_",
+		"triplex_node" : "XN_",
+		"underground_line" : "UL_",
+		"underground_line_conductor" : "UC_",
+		"vfd" : "VF_",
+		"volt_var_control" : "VV_",
+		"voltdump" : "VD_",
+	}
 
 	def __init__(self,file,mode):
 
@@ -91,7 +151,21 @@ class GLM:
 		self.objects = {}
 
 	def __del__(self):
-		self.close()
+		if self.object():
+			self.error("glm object was deleted before objects were output")
+
+	def name(self,name,oclass=None):
+		if oclass:
+			if not oclass in self.prefix.keys(): # name prefix not found
+				prefix = f"Z{len(self.prefix.keys())}_"
+				self.prefix[oclass] = prefix
+				warning(f"{cyme_mdbname}:{network_id}: class '{oclass}' is not a known gridlabd powerflow class, using prefix '{prefix}' for names")
+			else:
+				prefix = self.prefix[oclass]
+			name = prefix + name
+		elif "0" <= name[0] <= "9":
+			name = "_" + name
+		return name.replace(" ","_")
 
 	def write(self,line):
 		print(line,file=self.fh)
@@ -162,26 +236,40 @@ class GLM:
 		obj["class"] = oclass
 		return obj
 
-	def close(self):
-		for name, parameters in self.objects.items():
-			self.write(f"object {parameters['class']}")
-			self.write("{")
-			for tag, value in parameters.items():
-				if tag != "class":
-					if type(value) is str:
-						self.write(f"\t{tag} \"{value}\";")
-					else:
-						self.write(f"\t{tag} {value};")
-			self.write("}")
-		self.objects = {}
-
-	def name(self,name,oclass=None):
-		if oclass:
-			return oclass + "_" + name
-		elif "0" <= name[0] <= "9":
-			return "_"+name
+	def modify(self,object,property,value):
+		if type(value) is str:
+			glm.write(f"modify {object}.{property} \"{value}\";")
 		else:
-			return name
+			glm.write(f"modify {object}.{property} {value};")
+
+	def close(self):
+		if self.objects:
+			for name, parameters in self.objects.items():
+				self.write(f"object {parameters['class']}")
+				self.write("{")
+				for tag, value in parameters.items():
+					if tag != "class":
+						if type(value) is str:
+							self.write(f"\t{tag} \"{value}\";")
+						else:
+							self.write(f"\t{tag} {value};")
+				self.write("}")
+			for modify in settings["GLM_MODIFY"].split():
+				self.blank()
+				self.comment("",f"Modifications from '{modify}'","")
+				if os.path.exists("../"+modify):
+					with open("../"+modify,"r") as fh:
+						reader = csv.reader(fh)
+						for row in reader:
+							if 0 < len(row) < 3:
+								warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
+							elif len(row) > 3:
+								warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
+								self.modify(*row[0:3])
+							else:
+								self.modify(*row)
+			self.objects = {}
+
 #
 # Phase mapping
 #
@@ -190,7 +278,7 @@ glm_phase_code = {"A":1, "B":2, "C":4, "AB":3, "AC":5, "BC":6, "ABC":7} # GLM ph
 glm_phase_name = {0:"ABCN", 1:"A",2:"B",3:"AB",4:"C",5:"AC",6:"BC",7:"ABC"} # GLM phase number -> phase name
 
 #
-# Device mapping
+# Device type mapping
 #
 cyme_devices = {
 	1 : "UndergroundLine",
@@ -293,8 +381,8 @@ def add_link(section_id,section):
 			node_links[to_node_id].append(device_id)
 		else:
 			warning(
-				f"Network {network_id} device {device_id}: device type {device_type} ({cyme_devices[device_type]}) has no corresponding GLM object",
-				f"Omitting device {device_id} is likely to change the results and/or cause solver issues",
+				f"{cyme_mdbname}@{network_id}: device {device_id}: device type {device_type} ({cyme_devices[device_type]}) has no corresponding GLM object",
+				f"{cyme_mdbname}@{network_id}: omitting device {device_id} is likely to change the results and/or cause solver issues",
 				)
 	return device_dict
 
@@ -470,17 +558,17 @@ def add_load(load_id,load):
 				f"constant_impedance_{phase}" : "%.4g%+.4gj" % (LoadValue1,LoadValue2),
 				})
 	else:
-		warning(f"Load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
+		warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
 
 # add a capacitor
 def add_capacitor(capacitor_id,capacitor):
-	node_name = glm.name(capacitor_id,"node")
+	capacitor_name = glm.name(capacitor_id,"capacitor")
 	phase = cyme_phase_name[int(capacitor["Phase"])]
 	KVARA = float(capacitor["KVARA"])
 	KVARB = float(capacitor["KVARB"])
 	KVARC = float(capacitor["KVARC"])
 	KVLN = float(capacitor["KVLN"])
-	return glm.object("capacitor",capacitor_id,{
+	return glm.object("capacitor",capacitor_name,{
 		"parent" : glm.name(capacitor_id,"node"),
 		"nominal_voltage" : f"{KVLN} kV",
 		"phases" : phase,
@@ -493,6 +581,45 @@ def add_capacitor(capacitor_id,capacitor):
 		"switchC" : "CLOSED",
 		"control" : "MANUAL",
 		})
+
+# add a transformer
+def add_transformer(transformer_id, transformer):
+	warning(f"{cyme_mdbname}@{network_id}: unable to convert transformer '{transformer_id}' using data {transformer.to_dict()}")
+	# DeviceType = int(transformer["DeviceType"])
+	# equipment_id = transformer["EquipmentId"]
+	# equipment = eqtransformers.loc[equipment_id]
+	# NominalRatingKVA = float(equipment["NominalRatingKVA"])
+	# PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
+	# SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
+	# if PrimaryVoltageKVLL == SecondaryVoltageKVLL:
+	# 	SecondaryVoltageKVLL += 0.001
+	# 	warning(f"{cyme_mdbname}@{network_id}: transformer {transformer_id} PrimaryVoltageKVLL = SecondaryVoltageKVLL, adjusting SecondaryVoltageKVLL by 1V")
+	# PosSeqImpedancePercent = float(equipment["PosSeqImpedancePercent"])
+	# XRRatio = float(equipment["XRRatio"])
+	# if XRRatio == 0.0:
+	# 	r = 0.000333
+	# 	x = 0.00222
+	# 	warning(f"{cyme_mdbname}@{network_id}:  transformer {transformer_id} XRRatio is zero, using default impedance {'%.4g%+.4gj' % (r,x)}")
+	# else:
+	# 	r = XRRatio / 100.0 / sqrt(1+XRRatio**2)
+	# 	x = r * XRRatio
+	# nominal_rating = "%.4g kVA" % (NominalRatingKVA)
+	# primary_voltage = "%.4g kV" % (PrimaryVoltageKVLL/sqrt(3.0))
+	# secondary_voltage = "%.4g kV" % (SecondaryVoltageKVLL/sqrt(3.0))
+	# configuration_name = glm.name("transformer_configuration_")
+	# impedance = "%.4g%+.4gj" % (r,x)
+	# configuration_name = glm.name(configuration,)
+	# return glm.object("transformer_configure",transformer_id,{
+	# 	"NominalRatingKVA" : ,
+	# 	"PrimaryRatedCapacity" : , primary_voltage
+	# 	"SecondaryRatedCapacity" : secondary_voltage,
+	# 	"impedance" : "%.4g%+.4gj" % (r,x),
+	# 	})
+	return
+
+# add a regulator
+def add_regulator(regulator_id, regulator):
+	return
 
 #
 # Load all the model tables (table names have an "s" appended)
@@ -530,6 +657,9 @@ for network_id, network in networks.iterrows():
 	glm.comment("","Application information","")
 	glm.define("APP_COMMAND",app_command)
 	glm.define("APP_VERSION",app_version)
+
+	glm.blank()
+	glm.comment("","Git information","")
 	glm.define("GIT_PROJECT",git_project)
 	glm.define("GIT_COMMIT",git_commit)
 	glm.define("GIT_BRANCH",git_branch)
@@ -545,7 +675,7 @@ for network_id, network in networks.iterrows():
 	# settings from model
 	glm.blank()
 	glm.comment("","CYME model information","")
-	glm.define("CYME_DBMNAME",os.getenv("PWD").split("/")[-1])
+	glm.define("CYME_MDBNAME",cyme_mdbname)
 	glm.define("CYME_VERSION",version)
 	glm.define("CYME_CREATED",dt.datetime.fromtimestamp(creation_time).isoformat())
 	glm.define("CYME_MODIFIED",dt.datetime.fromtimestamp(last_change).isoformat())
@@ -605,8 +735,12 @@ for network_id, network in networks.iterrows():
 		add_load(load_id,load)
 
 	# transformers
+	for transformer_id, transformer in table_find(transformers,NetworkId=network_id).iterrows():
+		add_transformer(transformer_id,transformer)
 
 	# regulators
+	for regulator_id, regulator in table_find(regulators,NetworkId=network_id).iterrows():
+		add_transformer(regulator_id,regulator)
 
 	# capacitors
 	for cap_id, cap in table_find(shuntcapacitors,NetworkId=network_id).iterrows():
@@ -619,4 +753,4 @@ for network_id, network in networks.iterrows():
 	glm.close()
 
 if network_count == 0:
-	warning(f"  The network pattern '{settings['GLM_NETWORK_MATCHES']}' did not match any networks in the database")
+	warning(f"  {cyme_mdbname}: the network pattern '{settings['GLM_NETWORK_MATCHES']}' did not match any networks in the database")
