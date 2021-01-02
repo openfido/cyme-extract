@@ -75,7 +75,7 @@ for index, node in nodes.iterrows():
 		graph.add_node(node["NodeId"])
 
 color = ["white","#cc0000","#00cc00","#0000cc","#aaaa00","#aa00aa","#00aaaa","#999999"]
-weight = [0,1,1,2,1,2,2,3]
+weight = [0,1,1,1,2,2,2,3]
 for index, edge in section.iterrows():
 	phase = edge["Phase"]
 	fnode = edge["FromNodeId"]
