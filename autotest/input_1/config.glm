@@ -13,14 +13,14 @@ clock
 
 module powerflow;
 
-#if ${SOLUTIONDUMP:-no} == yes
+#ifdef SOLUTIONDUMP
 object voltdump 
 {
-	filename "voltdump.csv";
+	filename "$CYME_MDBNAME-$CYME_NETWORKID-voltdump.csv";
 }
 
 object currdump 
 {
-	filename "currdump.csv";
+	filename "$CYME_MDBNAME-$CYME_NETWORKID-currdump.csv";
 }
 #endif
