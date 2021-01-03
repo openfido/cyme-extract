@@ -108,6 +108,7 @@ config = pd.DataFrame({
 	"GLM_ERRORS" : ["exception"],
 	"GLM_WARNINGS" : ["stdout"],
 	"GLM_MODIFY" : [""],
+	"GLM_ASSUMPTIONS" : ["no"]
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 try:
@@ -290,6 +291,7 @@ class GLM:
 		self.filename = file
 		self.fh = open(file,mode)
 		self.objects = {}
+		self.assumptions = []
 
 	def __del__(self):
 		if self.objects:
@@ -388,7 +390,12 @@ class GLM:
 		else:
 			glm.write(f"modify {object}.{property} {value};")
 
+	def assume(self,objname,propname,value,remark=""):
+		self.assumptions.append([objname,propname,value,remark])
+
 	def close(self):
+		
+		# objects
 		if self.objects:
 			for name, parameters in self.objects.items():
 				self.write(f"object {parameters['class']}")
@@ -400,21 +407,42 @@ class GLM:
 						else:
 							self.write(f"\t{tag} {value};")
 				self.write("}")
-			for modify in settings["GLM_MODIFY"].split():
-				self.blank()
-				self.comment("",f"Modifications from '{modify}'","")
-				if os.path.exists("../"+modify):
-					with open("../"+modify,"r") as fh:
-						reader = csv.reader(fh)
-						for row in reader:
-							if 0 < len(row) < 3:
-								warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
-							elif len(row) > 3:
-								warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
-								self.modify(*row[0:3])
-							else:
-								self.modify(*row)
 			self.objects = {}
+
+		# assumptions
+		if self.assumptions:
+			if settings["GLM_ASSUMPTIONS"] in ["save","include"]:
+				filename = f"{cyme_mdbname}_{network_id}_assumptions.glm"
+				with open(f"../{filename}","w") as fh:
+					print("// Assumptions for GLM conversion from database {cyme_mdbname} network {network_id}",file=fh)
+					for row in self.assumptions:
+						print(f"modify {row[0]}.{row[1]} \"{row[2]}\"; // {row[3]}",file=fh)
+				if settings["GLM_ASSUMPTIONS"] == "include":
+					self.blank()
+					self.comment("","Assumptions","")
+					self.include(filename)
+			elif settings["GLM_ASSUMPTIONS"] == "warn":
+				filename = f"../{cyme_mdbname}_{network_id}_assumptions.csv"
+				warning(f"{cyme_mdbname}@{network_id}: {len(self.assumptions)} assumptions made, set GLM_ASSUMPTION to 'save' in 'config.csv' for details")
+				pd.DataFrame(self.assumptions).to_csv(filename,header=["object_name","property_name","value","remark"],index=False)
+			elif settings["GLM_ASSUMPTIONS"] != "ignore":
+				warning(f"GLM_ASSUMPTIONS={settings['GLM_ASSUMPTIONS']} is not valid (must be one of 'yes','no','warn','include')")
+		
+		# modifications
+		for modify in settings["GLM_MODIFY"].split():
+			self.blank()
+			self.comment("",f"Modifications from '{modify}'","")
+			if os.path.exists("../"+modify):
+				with open("../"+modify,"r") as fh:
+					reader = csv.reader(fh)
+					for row in reader:
+						if 0 < len(row) < 3:
+							warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
+						elif len(row) > 3:
+							warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
+							self.modify(*row[0:3])
+						else:
+							self.modify(*row)
 
 	# general glm model add function
 	def add(self,oclass,device_id,data,call=None):
@@ -602,9 +630,8 @@ class GLM:
 		to_name = self.name(section["ToNodeId"],"node")
 		customer_id = load["CustomerNumber"]
 		link_name = self.name(section_id,"link")
-		if link_name in self.objects.keys():
+		if link_name in self.objects.keys(): # link is no longer needed
 			del self.objects[link_name]
-
 		load_name = self.name(load_id,"load")
 		device_type = int(load["DeviceType"])
 		phase = cyme_phase_name[int(load["Phase"])]
@@ -631,14 +658,29 @@ class GLM:
 
 	# add a capacitor
 	def add_capacitor(self,capacitor_id,capacitor):
+		section_id = table_get(sectiondevices,capacitor_id,"SectionId")
+		section = table_get(sections,section_id)
+		from_name = self.name(section["FromNodeId"],"node")
+		to_name = self.name(section["ToNodeId"],"node")
+		link_name = self.name(section_id,"link")
+		if link_name in self.objects.keys(): # link is no longer needed
+			del self.objects[link_name]
 		capacitor_name = self.name(capacitor_id,"capacitor")
 		phase = cyme_phase_name[int(capacitor["Phase"])]
 		KVARA = float(capacitor["KVARA"])
 		KVARB = float(capacitor["KVARB"])
 		KVARC = float(capacitor["KVARC"])
 		KVLN = float(capacitor["KVLN"])
+		switchA = "CLOSED"
+		self.assume(capacitor_name,"switchA",switchA,f"capacitor {capacitor_id} does not specify switch A position, valid options are 'CLOSED' or 'OPEN'")
+		switchB = "CLOSED"
+		self.assume(capacitor_name,"switchB",switchB,f"capacitor {capacitor_id} does not specify switch B position, valid options are 'CLOSED' or 'OPEN'")
+		switchC = "CLOSED"
+		self.assume(capacitor_name,"switchC",switchC,f"capacitor {capacitor_id} does not specify switch C position, valid options are 'CLOSED' or 'OPEN'")
+		control = "MANUAL"
+		self.assume(capacitor_name,"control",control,f"capacitor {capacitor_id} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
 		return self.object("capacitor",capacitor_name,{
-			"parent" : self.name(capacitor_id,"node"),
+			"parent" : from_name,
 			"nominal_voltage" : f"{KVLN} kV",
 			"phases" : phase,
 			"phases_connected" : phase,
@@ -659,27 +701,27 @@ class GLM:
 		NominalRatingKVA = float(equipment["NominalRatingKVA"])
 		PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
 		SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
-		if PrimaryVoltageKVLL == SecondaryVoltageKVLL:
-			SecondaryVoltageKVLL += 0.001
-			warning(f"{cyme_mdbname}@{network_id}: transformer {transformer_id} PrimaryVoltageKVLL = SecondaryVoltageKVLL, adjusting SecondaryVoltageKVLL by 1V")
 		PosSeqImpedancePercent = float(equipment["PosSeqImpedancePercent"])
 		XRRatio = float(equipment["XRRatio"])
-		if XRRatio == 0.0:
-			r = 0.000333
-			x = 0.00222
-			warning(f"{cyme_mdbname}@{network_id}:  transformer {transformer_id} XRRatio is zero, using default impedance {'%.4g%+.4gj' % (r,x)}")
-		else:
-			r = XRRatio / 100.0 / sqrt(1+XRRatio**2)
-			x = r * XRRatio
+		r = XRRatio / 100.0 / sqrt(1+XRRatio**2)
+		x = r * XRRatio
 		nominal_rating = "%.4gkVA" % (NominalRatingKVA)
 		primary_voltage = "%.4gkV" % (PrimaryVoltageKVLL/sqrt(3.0))
 		secondary_voltage = "%.4gkV" % (SecondaryVoltageKVLL/sqrt(3.0))
 		configuration_name = self.name([nominal_rating,primary_voltage,secondary_voltage,"R%.4g"%(r),"X%4g"%(x)], "transformer_configuration")
+		if primary_voltage == secondary_voltage:
+			secondary_voltage = "%.4gkV" % ((SecondaryVoltageKVLL+0.001)/sqrt(3.0))
+			self.assume(configuration_name,"secondary_voltage",secondary_voltage,f"transformer {transformer_id} primary voltage is the same as secondary voltage")
+		if r == 0.0:
+			r = 0.000333
+			x = 0.00222
+			self.assume(configuration_name,"resistance",r,f"transformer {transformer_id} XRRatio is zero")
+			self.assume(configuration_name,"reactance",x,f"transformer {transformer_id} XRRatio is zero")
 
 		connect_type = "WYE_WYE"
-		warning(f"{cyme_mdbname}@{network_id}: transformer '{transformer_id}' does not specify connection type, using '{configuration_name}.connect_type={connect_type} instead \n  Add/edit the line '{configuration_name},connect_type,<SINGLE_PHASE_CENTER_TAPPED|SINGLE_PHASE|DELTA_GWYE|DELTA_DELTA|WYE_WYE>' to GLM_MODIFY file to correct this")
+		self.assume(configuration_name,"connect_type",connect_type,f"transformer '{transformer_id}' does not specify connection type")
 		install_type = "PADMOUNT"
-		warning(f"{cyme_mdbname}@{network_id}: transformer '{transformer_id}' does not specify install type, using '{configuration_name}.install_type={install_type} instead \n  Add/edit the line '{configuration_name},install_type,<VAULT|PADMOUNT|POLETOP>' to GLM_MODIFY file to correct this")
+		self.assume(configuration_name,"install_type",install_type,f"transformer '{transformer_id}' does not specify install type")
 
 		self.object("transformer_configuration", configuration_name, {
 			"connect_type" : "WYE_WYE",
@@ -727,12 +769,11 @@ class GLM:
 		time_delay = "30s"
 		band_center = "${GLM_NOMINAL_VOLTAGE}"
 		band_width = "%.1gV" % (BandWidth)
-
 		configuration_name = self.name([band_width,time_delay],"regulator_configuration")
-		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify connection type, using '{configuration_name}.connect_type={connect_type}' instead \n  Add/edit the line '{configuration_name},connect_type,<CLOSED_DELTA|OPEN_DELTA_CABA|OPEN_DELTA_BCAC|OPEN_DELTA_ABBC|WYE_WYE>' to GLM_MODIFY file to correct this")
-		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify control type, using '{configuration_name}.Control={Control}' instead \n  Add/edit the line '{configuration_name},Control,<REMOTE_NODE|LINE_DROP_COMP|OUTPUT_VOLTAGE|MANUAL>' to GLM_MODIFY file to correct this")
-		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify time delay, using '{configuration_name}.time_delay={time_delay}' instead \n  Add/edit the line '{configuration_name},time_delay,<positive-integer><time-unit>' to GLM_MODIFY file to correct this")
-		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify band center, using '{configuration_name}.band_center={band_center}' instead \n  Add/edit the line '{configuration_name},band_center,<positive-real><voltage-unit>' to GLM_MODIFY file to correct this")
+		self.assume(configuration_name,"connect_type",connect_type,f"regulator '{regulator_id}' does not specify connection type")
+		self.assume(configuration_name,"Control",Control,f"regulator '{regulator_id}' does not specify control type")
+		self.assume(configuration_name,"time_delay",time_delay,f"regulator '{regulator_id}' does not specify time delay")
+		self.assume(configuration_name,"band_center",band_center,f"regulator '{regulator_id}' does not specify time delay")
 
 		self.object("regulator_configuration", configuration_name, {
 			"connect_type" : connect_type,
@@ -751,7 +792,7 @@ class GLM:
 		link_name = self.name(regulator_id,"link")
 		regulator_name = self.name(regulator_id,"regulator")
 		sense_node = glm.objects[link_name]["to"]
-		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify sense node, using '{regulator_name}.sense_node={sense_node}' instead \n  Add/edit the line '{configuration_name},sense_node,<powerflow-node-object-name>' to GLM_MODIFY file to correct this")
+		self.assume(link_name,"sense_node",sense_node,f"regulator '{regulator_id}' does not specify sense node")
 		return self.object("regulator", self.name(regulator_id,"link"), {
 			"configuration" : configuration_name,
 			"sense_node" : sense_node,
@@ -923,6 +964,6 @@ if network_count == 0:
 	warning(f"  {cyme_mdbname}: the network pattern '{settings['GLM_NETWORK_MATCHES']}' did not match any networks in the database")
 elif warning_count > 0:
 	print("Model conversion problems can be corrected using 'GLM_MODIFY=modify.csv' in 'config.csv'.")
-	print("  See http://docs.gridlabd.us/index.html?owner=openfido&project=cyme-extract&doc=/Post_processing/Write_glm.md for details")
+	print("  See http://docs.gridlabd.us/index.html?owner=openfido&project=cyme-extract&doc=/Post_processing/Write_glm.md for details")	
 
 print(f"CYME-to-GridLAB-D conversion done: {network_count} networks processed, {warning_count} warnings, {error_count} errors")

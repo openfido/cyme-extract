@@ -12,6 +12,7 @@ Settings in the `config.csv` file that affect the `write_glm` processor include:
   - `GLM_ERRORS` : disposition of error messages (options are "stdout", "stderr", or the default "exception")
   - `GLM_WARNINGS` : disposition of warning messages (options are "stderr", "exception" or the default "stdout")
   - `GLM_MODIFY` : name of model modification records to load after creating model
+  - `GLM_ASSUMPTIONS` : disposition of assumption information generated during conversion
 
 The general structure of the output GLM is as follows:
 
@@ -101,6 +102,15 @@ A single CSV file may be processed after the GLM objects are created to enable m
 ...
 <objectN>,<propertyN>,<valueN>
 ~~~
+
+### `GLM_ASSUMPTIONS`
+
+During the conversion process, some assumption may be made to generate a working GridLAB-D model.  These assumptions will be disposed of according to setting of `GLM_ASSUMPTIONS`:
+
+  - `ignore`: ignore the assumptions generated
+  - `include`: save the assumptions to a GLM and include it in the GLM file so they can be adjusted later
+  - `save`: save the assumption to a CSV file
+  - `warn`: only generate a warning message if assumptions are made
 
 ## CYME Devices
 
