@@ -280,8 +280,9 @@ class GLM:
 		"voltdump" : "VD_",
 	}
 
-	def __init__(self,file,mode):
+	def __init__(self,file,mode="w"):
 
+		self.filename = file
 		self.fh = open(file,mode)
 		self.objects = {}
 
@@ -296,7 +297,7 @@ class GLM:
 			if not oclass in self.prefix.keys(): # name prefix not found
 				prefix = f"Z{len(self.prefix.keys())}_"
 				self.prefix[oclass] = prefix
-				warning(f"{cyme_mdbname}:{network_id}: class '{oclass}' is not a known gridlabd powerflow class, using prefix '{prefix}' for names")
+				warning(f"{cyme_mdbname}@{network_id}: class '{oclass}' is not a known gridlabd powerflow class, using prefix '{prefix}' for names")
 			else:
 				prefix = self.prefix[oclass]
 			name = prefix + name
@@ -613,7 +614,7 @@ class GLM:
 					f"constant_impedance_{phase}" : "%.4g%+.4gj" % (LoadValue1,LoadValue2),
 					})
 		else:
-			raise Exception(f"load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
+			warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
 
 	# add a capacitor
 	def add_capacitor(self,capacitor_id,capacitor):
@@ -663,7 +664,9 @@ class GLM:
 		configuration_name = self.name([nominal_rating,primary_voltage,secondary_voltage,"R%.4g"%(r),"X%4g"%(x)], "transformer_configuration")
 
 		connect_type = "WYE_WYE"
+		warning(f"{cyme_mdbname}@{network_id}: transformer '{transformer_id}' does not specify connection type, using '{configuration_name}.connect_type={connect_type} instead \n  Add/edit the line '{configuration_name},connect_type,<SINGLE_PHASE_CENTER_TAPPED|SINGLE_PHASE|DELTA_GWYE|DELTA_DELTA|WYE_WYE>' to GLM_MODIFY file to correct this")
 		install_type = "PADMOUNT"
+		warning(f"{cyme_mdbname}@{network_id}: transformer '{transformer_id}' does not specify install type, using '{configuration_name}.install_type={install_type} instead \n  Add/edit the line '{configuration_name},install_type,<VAULT|PADMOUNT|POLETOP>' to GLM_MODIFY file to correct this")
 
 		self.object("transformer_configuration", configuration_name, {
 			"connect_type" : "WYE_WYE",
@@ -713,10 +716,10 @@ class GLM:
 		band_width = "%.1gV" % (BandWidth)
 
 		configuration_name = self.name([band_width,time_delay],"regulator_configuration")
-		warning(f"regulator '{regulator_id}' does not specify connection type, using '{configuration_name},connect_type,{connect_type}', ")
-		warning(f"regulator '{regulator_id}' does not specify remote sensing node, using '{configuration_name},Control,{Control}'")
-		warning(f"regulator '{regulator_id}' does not specify time delay, using '{configuration_name},time_delay,{time_delay}")
-		warning(f"regulator '{regulator_id}' does not specify band center, using '{configuration_name},band_center,{band_center}")
+		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify connection type, using '{configuration_name}.connect_type={connect_type}' instead \n  Add/edit the line '{configuration_name},connect_type,<CLOSED_DELTA|OPEN_DELTA_CABA|OPEN_DELTA_BCAC|OPEN_DELTA_ABBC|WYE_WYE>' to GLM_MODIFY file to correct this")
+		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify remote sensing node, using '{configuration_name}.Control={Control}' instead \n  Add/edit the line '{configuration_name},Control,<REMOTE_NODE|LINE_DROP_COMP|OUTPUT_VOLTAGE|MANUAL>' to GLM_MODIFY file to correct this")
+		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify time delay, using '{configuration_name}.time_delay={time_delay}' instead \n  Add/edit the line '{configuration_name},time_delay,<positive-integer><time-unit>' to GLM_MODIFY file to correct this")
+		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify band center, using '{configuration_name}.band_center={band_center}' instead \n  Add/edit the line '{configuration_name},band_center,<positive-real><voltage-unit>' to GLM_MODIFY file to correct this")
 
 		self.object("regulator_configuration", configuration_name, {
 			"connect_type" : connect_type,
@@ -732,15 +735,12 @@ class GLM:
 			"Control" : Control
 			})
 
+		regulator_name = self.name(regulator_id,"regulator")
+		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify band center, using '{regulator_name}.sense_node=None' instead \n  Add/edit the line '{configuration_name},sense_node,<powerflow-node-object-name>' to GLM_MODIFY file to correct this")
 		return self.object("regulator", self.name(regulator_id,"link"), {
 			"configuration" : configuration_name,
+			"sense_node" : None
 			})
-		# name Reg1;
-		# phases "ABC";
-		# from Node650;
-		# to Node630;
-		# sense_node Load671;
-		# configuration regulator_configuration1;
 
 #
 # Process networks
@@ -863,13 +863,27 @@ for network_id, network in networks.iterrows():
 	for id, data in table_find(switchs,NetworkId=network_id).iterrows():
 		glm.add("switch", id, data)
 
+	#
+	# Check conversion
+	#
+	for name, data in glm.objects.items():
+		if not "name" in data:
+			warning("%s: object does not have a name, object data [%s]" % (glm.filename,data))
+		elif not "class" in data:
+			warning("%s: object '%s' does not have a class" % (glm.filename,data["name"]))
+		elif data["class"] in ["link","powerflow_object","line"]:
+			warning("%s: object '%s' uses abstract-only class '%s'" % (glm.filename,data["name"],data["class"]))
+
 	glm.close()
+
+#
+# Final checks
+#
 
 if network_count == 0:
 	warning(f"  {cyme_mdbname}: the network pattern '{settings['GLM_NETWORK_MATCHES']}' did not match any networks in the database")
-
-if warning_count > 0:
-	print("Non-trivial model conversion problem can be corrected using 'GLM_MODIFY=modify.csv' in 'config.csv'.")
+elif warning_count > 0:
+	print("Model conversion problems can be corrected using 'GLM_MODIFY=modify.csv' in 'config.csv'.")
 	print("  See http://docs.gridlabd.us/index.html?owner=openfido&project=cyme-extract&doc=/Post_processing/Write_glm.md for details")
 
-print(f"Process 'write_glm' done: {network_count} networks processed, {warning_count} warnings, {error_count} errors")
+print(f"CYME-to-GridLAB-D conversion done: {network_count} networks processed, {warning_count} warnings, {error_count} errors")
