@@ -108,9 +108,9 @@ A single CSV file may be processed after the GLM objects are created to enable m
 During the conversion process, some assumption may be made to generate a working GridLAB-D model.  These assumptions will be disposed of according to setting of `GLM_ASSUMPTIONS`:
 
   - `ignore`: ignore the assumptions generated
-  - `include`: save the assumptions to a GLM and include it in the GLM file so they can be adjusted later
-  - `save`: save the assumption to a CSV file
-  - `warn`: only generate a warning message if assumptions are made
+  - `include`: add the assumptions to the GLM file so they can be modified manually
+  - `save`: save the assumption to GLM file for later processig
+  - `warn`: save the assumptions to a CSV file and generate a warning message
 
 ## CYME Devices
 

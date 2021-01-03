@@ -384,11 +384,15 @@ class GLM:
 		obj["class"] = oclass
 		return obj
 
-	def modify(self,object,property,value):
+	def modify(self,object,property,value,comment=""):
+		if comment:
+			comment = " // " + str(comment)
+		elif not type(comment) is str:
+			comment = ""
 		if type(value) is str:
-			glm.write(f"modify {object}.{property} \"{value}\";")
+			glm.write(f"modify {object}.{property} \"{value}\";{comment}")
 		else:
-			glm.write(f"modify {object}.{property} {value};")
+			glm.write(f"modify {object}.{property} {value};{comment}")
 
 	def assume(self,objname,propname,value,remark=""):
 		self.assumptions.append([objname,propname,value,remark])
@@ -411,19 +415,20 @@ class GLM:
 
 		# assumptions
 		if self.assumptions:
-			if settings["GLM_ASSUMPTIONS"] in ["save","include"]:
+			if settings["GLM_ASSUMPTIONS"] in ["save"]:
 				filename = f"{cyme_mdbname}_{network_id}_assumptions.glm"
 				with open(f"../{filename}","w") as fh:
 					print("// Assumptions for GLM conversion from database {cyme_mdbname} network {network_id}",file=fh)
 					for row in self.assumptions:
 						print(f"modify {row[0]}.{row[1]} \"{row[2]}\"; // {row[3]}",file=fh)
-				if settings["GLM_ASSUMPTIONS"] == "include":
-					self.blank()
-					self.comment("","Assumptions","")
-					self.include(filename)
+			elif settings["GLM_ASSUMPTIONS"] == "include":
+				self.blank()
+				self.comment("","Assumptions","")
+				for row in self.assumptions:
+					self.modify(row[0],row[1],row[2],row[3])
 			elif settings["GLM_ASSUMPTIONS"] == "warn":
 				filename = f"../{cyme_mdbname}_{network_id}_assumptions.csv"
-				warning(f"{cyme_mdbname}@{network_id}: {len(self.assumptions)} assumptions made, set GLM_ASSUMPTION to 'save' in 'config.csv' for details")
+				warning(f"{cyme_mdbname}@{network_id}: {len(self.assumptions)} assumptions made, see '{filename}' for details")
 				pd.DataFrame(self.assumptions).to_csv(filename,header=["object_name","property_name","value","remark"],index=False)
 			elif settings["GLM_ASSUMPTIONS"] != "ignore":
 				warning(f"GLM_ASSUMPTIONS={settings['GLM_ASSUMPTIONS']} is not valid (must be one of 'yes','no','warn','include')")
@@ -481,7 +486,7 @@ class GLM:
 		for device_id in node_links[node_id]:
 			phase |= glm_phase_code[device_dict[device_id]["phases"]]
 		obj = self.object("node", self.name(node_id,"node"), {
-			"phases" : glm_phase_name[phase],
+			"phases" : glm_phase_name[phase]+"N",
 			"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 			})
 		if node_id == head_node:
@@ -635,6 +640,10 @@ class GLM:
 		load_name = self.name(load_id,"load")
 		device_type = int(load["DeviceType"])
 		phase = cyme_phase_name[int(load["Phase"])]
+		if load_name in self.objects.keys() and "phases" in self.objects[load_name]:
+			phases = self.objects[load_name]["phases"] + phase
+		else:
+			phases = phase
 		if device_type in glm_devices.keys():
 			ConsumerClassId = load["ConsumerClassId"]
 			load_value1 = float(load["LoadValue1"])
@@ -643,12 +652,14 @@ class GLM:
 			if ConsumerClassId in load_types.keys():
 				return self.object("load",load_name,{
 					"parent" : from_name,
+					"phases" : phases,
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
 			elif ConsumerClassId in ["PQ","PV","SWING","SWINGPQ"]: # GLM bus types allowed
 				return self.object("load",load_name,{
 					"parent" : from_name,
+					"phases" : phases,
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					"bustype" : ConsumerClassId,
 					f"constant_impedance_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
