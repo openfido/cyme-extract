@@ -15,6 +15,7 @@ import csv
 import pprint
 pp = pprint.PrettyPrinter(indent=4,compact=True)
 import traceback
+from copy import copy
 
 cyme_tables = [
 	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
@@ -212,8 +213,12 @@ def table_find(table,**kwargs):
 	return result
 
 # get the value in a table using the index
-def table_get(table,id,column=0):
-	return table.loc[id][column]
+def table_get(table,id,column=None):
+	if column == None or column == "*":
+		return table.loc[id]
+	else:
+		return table.loc[id][column]
+
 #
 # Load all the model tables (table names have an "s" appended)
 #
@@ -592,29 +597,37 @@ class GLM:
 	# add a load
 	def add_load(self,load_id,load):
 		section_id = table_get(sectiondevices,load_id,"SectionId")
-		section_name = self.name(section_id,"load")
-		DeviceType = int(load["DeviceType"])
+		section = table_get(sections,section_id)
+		from_name = self.name(section["FromNodeId"],"node")
+		to_name = self.name(section["ToNodeId"],"node")
+		customer_id = load["CustomerNumber"]
+		link_name = self.name(section_id,"link")
+		if link_name in self.objects.keys():
+			del self.objects[link_name]
+
+		load_name = self.name(load_id,"load")
+		device_type = int(load["DeviceType"])
 		phase = cyme_phase_name[int(load["Phase"])]
-		if DeviceType in glm_devices.keys():
+		if device_type in glm_devices.keys():
 			ConsumerClassId = load["ConsumerClassId"]
-			LoadValue1 = float(load["LoadValue1"])
-			LoadValue2 = float(load["LoadValue2"])
+			load_value1 = float(load["LoadValue1"])
+			load_value2 = float(load["LoadValue2"])
 			load_types = {"Z":"constant_impedance","I":"constant_current","P":"constant_power"}
 			if ConsumerClassId in load_types.keys():
-				return self.object("load",section_name,{
-					"parent" : self.name(section_id,"node"),
+				return self.object("load",load_name,{
+					"parent" : from_name,
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
-					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (LoadValue1,LoadValue2),
+					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
 			elif ConsumerClassId in ["PQ","PV","SWING","SWINGPQ"]: # GLM bus types allowed
-				return self.object("load",section_name,{
-					"parent" : self.name(section_id,"node"),
+				return self.object("load",load_name,{
+					"parent" : from_name,
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					"bustype" : ConsumerClassId,
-					f"constant_impedance_{phase}" : "%.4g%+.4gj" % (LoadValue1,LoadValue2),
+					f"constant_impedance_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
 		else:
-			warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[DeviceType]}' is not a supported CYME device type")
+			warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[device_type]}' is not a supported CYME device type")
 
 	# add a capacitor
 	def add_capacitor(self,capacitor_id,capacitor):
@@ -717,7 +730,7 @@ class GLM:
 
 		configuration_name = self.name([band_width,time_delay],"regulator_configuration")
 		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify connection type, using '{configuration_name}.connect_type={connect_type}' instead \n  Add/edit the line '{configuration_name},connect_type,<CLOSED_DELTA|OPEN_DELTA_CABA|OPEN_DELTA_BCAC|OPEN_DELTA_ABBC|WYE_WYE>' to GLM_MODIFY file to correct this")
-		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify remote sensing node, using '{configuration_name}.Control={Control}' instead \n  Add/edit the line '{configuration_name},Control,<REMOTE_NODE|LINE_DROP_COMP|OUTPUT_VOLTAGE|MANUAL>' to GLM_MODIFY file to correct this")
+		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify control type, using '{configuration_name}.Control={Control}' instead \n  Add/edit the line '{configuration_name},Control,<REMOTE_NODE|LINE_DROP_COMP|OUTPUT_VOLTAGE|MANUAL>' to GLM_MODIFY file to correct this")
 		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify time delay, using '{configuration_name}.time_delay={time_delay}' instead \n  Add/edit the line '{configuration_name},time_delay,<positive-integer><time-unit>' to GLM_MODIFY file to correct this")
 		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify band center, using '{configuration_name}.band_center={band_center}' instead \n  Add/edit the line '{configuration_name},band_center,<positive-real><voltage-unit>' to GLM_MODIFY file to correct this")
 
@@ -735,11 +748,13 @@ class GLM:
 			"Control" : Control
 			})
 
+		link_name = self.name(regulator_id,"link")
 		regulator_name = self.name(regulator_id,"regulator")
-		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify band center, using '{regulator_name}.sense_node=None' instead \n  Add/edit the line '{configuration_name},sense_node,<powerflow-node-object-name>' to GLM_MODIFY file to correct this")
+		sense_node = glm.objects[link_name]["to"]
+		warning(f"{cyme_mdbname}@{network_id}: regulator '{regulator_id}' does not specify sense node, using '{regulator_name}.sense_node={sense_node}' instead \n  Add/edit the line '{configuration_name},sense_node,<powerflow-node-object-name>' to GLM_MODIFY file to correct this")
 		return self.object("regulator", self.name(regulator_id,"link"), {
 			"configuration" : configuration_name,
-			"sense_node" : None
+			"sense_node" : sense_node,
 			})
 
 #
@@ -757,7 +772,7 @@ for network_id, network in networks.iterrows():
 	creation_time = int(network["CreationTime"])
 	last_change = int(network["LastChange"])
 	load_factor = float(network["LoadFactor"])
-	head_node = table_get(headnodes,network_id)
+	head_node = table_get(headnodes,network_id,"NodeId")
 	glmname = os.path.abspath(f"../{settings['GLM_NETWORK_PREFIX']}{network_id}.glm")
 
 	glm = GLM(glmname,"w")
@@ -837,39 +852,63 @@ for network_id, network in networks.iterrows():
 		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict)
 
 	# overhead lines
-	for id, data in table_find(overheadbyphases,NetworkId=network_id).iterrows():
-		glm.add("overhead_line", id, data)
+	for cyme_id, cyme_data in table_find(overheadbyphases,NetworkId=network_id).iterrows():
+		glm.add("overhead_line", cyme_id, cyme_data)
 
 	# unbalanced overhead lines
-	for id, data in table_find(overheadlineunbalanceds,NetworkId=network_id).iterrows():
-		glm.add("overhead_line_unbalanced", id, data)
+	for cyme_id, cyme_data in table_find(overheadlineunbalanceds,NetworkId=network_id).iterrows():
+		glm.add("overhead_line_unbalanced", cyme_id, cyme_data)
 
 	# loads
-	for id, data in table_find(customerloads,NetworkId=network_id).iterrows():
-		glm.add("load", id, data)
+	for cyme_id, cyme_data in table_find(customerloads,NetworkId=network_id).iterrows():
+		glm.add("load", cyme_id, cyme_data)
 
 	# transformers
-	for id, data in table_find(transformers,NetworkId=network_id).iterrows():
-		glm.add("transformer", id, data)
+	for cyme_id, cyme_data in table_find(transformers,NetworkId=network_id).iterrows():
+		glm.add("transformer", cyme_id, cyme_data)
 
 	# regulators
-	for id, data in table_find(regulators,NetworkId=network_id).iterrows():
-		glm.add("regulator", id, data)
+	for cyme_id, cyme_data in table_find(regulators,NetworkId=network_id).iterrows():
+		glm.add("regulator", cyme_id, cyme_data)
 
 	# capacitors
-	for id, data in table_find(shuntcapacitors,NetworkId=network_id).iterrows():
-		glm.add("capacitor", id, data)
+	for cyme_id, cyme_data in table_find(shuntcapacitors,NetworkId=network_id).iterrows():
+		glm.add("capacitor", cyme_id, cyme_data)
 	# switches
-	for id, data in table_find(switchs,NetworkId=network_id).iterrows():
-		glm.add("switch", id, data)
+	for cyme_id, cyme_data in table_find(switchs,NetworkId=network_id).iterrows():
+		glm.add("switch", cyme_id, cyme_data)
+
+	# collapse links
+	done = False
+	while not done:
+		done = True
+		for name in list(glm.objects.keys()):
+			data = glm.objects[name]
+			if "class" in data.keys() and data["class"] == "link": # needs to be collapse
+				from_node = data["from"]
+				to_node = data["to"]
+				while "parent" in glm.objects[to_node].keys() and glm.objects[to_node]["parent"]["class"] == "node": # don't allow grandchild nodes
+					to_node = glm.objects[to_node]["parent"]
+				glm.objects[to_node]["parent"] = from_node
+				print(f"DEBUG: removing object {name} by setting {to_node}.parent = {from_node}")
+				del glm.objects[name]
+				done = False
+			elif "class" in data.keys() and data["class"] in ["node","load"] and "parent" in data.keys():
+				parent_name = data["parent"]
+				parent_data = glm.objects[parent_name]
+				if "class" in parent_data.keys() and parent_data["class"] in ["node","load"] and "parent" in parent_data.keys():
+					grandparent = parent_data["parent"]
+					print(f"DEBUG: fix grandchild {name} by setting {name}.parent = {parent_name} -> {grandparent}")
+					data["parent"] = grandparent
+					done = False
 
 	#
 	# Check conversion
 	#
 	for name, data in glm.objects.items():
-		if not "name" in data:
+		if not "name" in data.keys():
 			warning("%s: object does not have a name, object data [%s]" % (glm.filename,data))
-		elif not "class" in data:
+		elif not "class" in data.keys():
 			warning("%s: object '%s' does not have a class" % (glm.filename,data["name"]))
 		elif data["class"] in ["link","powerflow_object","line"]:
 			warning("%s: object '%s' uses abstract-only class '%s'" % (glm.filename,data["name"],data["class"]))
