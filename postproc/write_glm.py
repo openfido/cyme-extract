@@ -199,6 +199,7 @@ glm_devices = {
 	# 14 : "fuse",
 	17 : "capacitor",
 	20 : "load",
+	21 : "load",
 	23 : "overhead_line",
 }
 
@@ -292,6 +293,7 @@ class GLM:
 		self.fh = open(file,mode)
 		self.objects = {}
 		self.assumptions = []
+		self.refcount = {}
 
 	def __del__(self):
 		if self.objects:
@@ -382,7 +384,18 @@ class GLM:
 			else:
 				obj[key] = value
 		obj["class"] = oclass
+		if name in self.refcount.keys():
+			self.refcount[name] += 1
+		else:
+			self.refcount[name] = 1
 		return obj
+
+	def delete(self,name):
+		if self.refcount[name] == 1:
+			del self.objects[name]
+		elif self.refcount[name] > 1:
+			self.refcount[name] -= 1
+
 
 	def modify(self,object,property,value,comment=""):
 		if comment:
@@ -631,12 +644,19 @@ class GLM:
 	def add_load(self,load_id,load):
 		section_id = table_get(sectiondevices,load_id,"SectionId")
 		section = table_get(sections,section_id)
-		from_name = self.name(section["FromNodeId"],"node")
-		to_name = self.name(section["ToNodeId"],"node")
+		device_type = int(table_get(sectiondevices,load_id,"DeviceType"))
+		if device_type == 20: # spot load is attached at from node of section
+			parent_name = self.name(section["FromNodeId"],"node")
+		elif device_type == 21: # distributed load is attached at to node of section
+			parent_name = self.name(section["ToNodeId"],"node")
+		else:
+			raise Exception(f"CYME device type {device_type} is not supported as a load")
 		customer_id = load["CustomerNumber"]
-		link_name = self.name(section_id,"link")
+
+		link_name = self.name(load_id,"link")
 		if link_name in self.objects.keys(): # link is no longer needed
-			del self.objects[link_name]
+			self.delete(link_name)
+		
 		load_name = self.name(load_id,"load")
 		device_type = int(load["DeviceType"])
 		phase = cyme_phase_name[int(load["Phase"])]
@@ -651,14 +671,14 @@ class GLM:
 			load_types = {"Z":"constant_impedance","I":"constant_current","P":"constant_power"}
 			if ConsumerClassId in load_types.keys():
 				return self.object("load",load_name,{
-					"parent" : from_name,
+					"parent" : parent_name,
 					"phases" : phases,
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
 			elif ConsumerClassId in ["PQ","PV","SWING","SWINGPQ"]: # GLM bus types allowed
 				return self.object("load",load_name,{
-					"parent" : from_name,
+					"parent" : parent_name,
 					"phases" : phases,
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					"bustype" : ConsumerClassId,
@@ -675,7 +695,7 @@ class GLM:
 		to_name = self.name(section["ToNodeId"],"node")
 		link_name = self.name(section_id,"link")
 		if link_name in self.objects.keys(): # link is no longer needed
-			del self.objects[link_name]
+			self.delete(link_name)
 		capacitor_name = self.name(capacitor_id,"capacitor")
 		phase = cyme_phase_name[int(capacitor["Phase"])]
 		KVARA = float(capacitor["KVARA"])
@@ -942,17 +962,17 @@ for network_id, network in networks.iterrows():
 				while "parent" in glm.objects[to_node].keys() and glm.objects[to_node]["parent"]["class"] == "node": # don't allow grandchild nodes
 					to_node = glm.objects[to_node]["parent"]
 				glm.objects[to_node]["parent"] = from_node
-				print(f"DEBUG: removing object {name} by setting {to_node}.parent = {from_node}")
-				del glm.objects[name]
+				glm.delete(name)
 				done = False
+				break
 			elif "class" in data.keys() and data["class"] in ["node","load"] and "parent" in data.keys():
 				parent_name = data["parent"]
 				parent_data = glm.objects[parent_name]
 				if "class" in parent_data.keys() and parent_data["class"] in ["node","load"] and "parent" in parent_data.keys():
 					grandparent = parent_data["parent"]
-					print(f"DEBUG: fix grandchild {name} by setting {name}.parent = {parent_name} -> {grandparent}")
 					data["parent"] = grandparent
 					done = False
+					break
 
 	#
 	# Check conversion
