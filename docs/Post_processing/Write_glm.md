@@ -1,4 +1,23 @@
-# Write GLM
+[[Post_processing/write_glm]] - CYME-GLM converter
+
+# Synopsis
+
+OpenFIDO:
+
+| Configuration      | Setting                                    |
+| ------------------ | ------------------------------------------ |
+| Pipeline name      | `CYME Database Extract`                    |
+| Description        | `Extract the contents of a CYME model`     |
+| DockerHub          | `ubuntu:20.04`                             |
+| Git Clone URL      | `https://github.com/openfido/cyme-extract` |
+| Repository Branch  | `master`                                   |
+| Entrypoint Script  | `openfido.sh`                              |
+
+Shell:
+
+~~~
+bash% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] [-h|--help] [-t|--cyme-tables]
+~~~
 
 The `write_glm` postprocessor can be used by adding the line `POSTPROC,write_glm.py` to the `config.csv` file.
 
@@ -22,6 +41,8 @@ The general structure of the output GLM is as follows:
 4. `powerflow` module statement to select the `NR` solver.
 5. `object` definitions from the CYME database
 6. `modify` statements from the `GLM_MODIFY` setting, if any.
+
+## Command line usage
 
 ## Globals
 
