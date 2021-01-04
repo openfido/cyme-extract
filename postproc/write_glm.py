@@ -693,9 +693,11 @@ class GLM:
 		section = table_get(sections,section_id)
 		from_name = self.name(section["FromNodeId"],"node")
 		to_name = self.name(section["ToNodeId"],"node")
-		link_name = self.name(section_id,"link")
+
+		link_name = self.name(capacitor_id,"link")
 		if link_name in self.objects.keys(): # link is no longer needed
 			self.delete(link_name)
+		
 		capacitor_name = self.name(capacitor_id,"capacitor")
 		phase = cyme_phase_name[int(capacitor["Phase"])]
 		KVARA = float(capacitor["KVARA"])
