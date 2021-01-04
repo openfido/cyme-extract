@@ -173,10 +173,10 @@ def error(*args):
 	else:
 		raise Exception("\n".join(args))
 
-def format_exception(errmsg,ref,data):
+def format_exception(errmsg,ref=None,data=None):
 	tb = str(traceback.format_exc().replace('\n','\n  '))
-	dd = str(pp.pformat(data.to_dict()).replace('\n','\n  '))
-	return "\n  " + tb + "Device '" + ref  + "' =\n  "+ dd
+	dd = str(pp.pformat(data).replace('\n','\n  '))
+	return "\n  " + tb + "'" + ref  + "' =\n  "+ dd
 
 #
 # Load user configuration
@@ -486,9 +486,9 @@ class GLM:
 		elif not type(comment) is str:
 			comment = ""
 		if type(value) is str:
-			glm.write(f"modify {object}.{property} \"{value}\";{comment}")
+			self.write(f"modify {object}.{property} \"{value}\";{comment}")
 		else:
-			glm.write(f"modify {object}.{property} {value};{comment}")
+			self.write(f"modify {object}.{property} {value};{comment}")
 
 	def assume(self,objname,propname,value,remark=""):
 		self.assumptions.append([objname,propname,value,remark])
@@ -550,7 +550,7 @@ class GLM:
 			call = getattr(self,"add_"+oclass)
 			return call(device_id,data)
 		except Exception as errmsg:
-			warning(f"{cyme_mdbname}@{network_id}: unable to add gridlabd class '{oclass}' using CYME device '{device_id}': {errmsg} {format_exception(errmsg,device_id,data)}")
+			warning(f"{cyme_mdbname}@{network_id}: unable to add gridlabd class '{oclass}' using CYME device '{device_id}': {errmsg} {format_exception(errmsg,device_id,data.to_dict())}")
 			pass 	
 
 	# add a link to glm file
@@ -584,7 +584,7 @@ class GLM:
 			"phases" : glm_phase_name[phase]+"N",
 			"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 			})
-		if node_id == head_node:
+		if node_id == table_get(cyme_table["headnode"],network_id,"NodeId"):
 			obj["bustype"] = "SWING"
 		else:
 			obj["bustype"] = "PQ"
@@ -906,7 +906,7 @@ class GLM:
 
 		link_name = self.name(regulator_id,"link")
 		regulator_name = self.name(regulator_id,"regulator")
-		sense_node = glm.objects[link_name]["to"]
+		sense_node = self.objects[link_name]["to"]
 		self.assume(link_name,"sense_node",sense_node,f"regulator '{regulator_id}' does not specify sense node")
 		return self.object("regulator", self.name(regulator_id,"link"), {
 			"configuration" : configuration_name,
@@ -914,21 +914,13 @@ class GLM:
 			})
 
 #
-# Process cyme_table["network"]
+# CYME 5 MDB extractor
 #
-network_count = 0
-for network_id, network in cyme_table["network"].iterrows():
-	
-	if not re.match(settings["GLM_NETWORK_MATCHES"],network_id):
-		continue
-	else:
-		network_count += 1
+def cyme_extract_5(network_id,network):
 
-	version = network["Version"]
 	creation_time = int(network["CreationTime"])
 	last_change = int(network["LastChange"])
 	load_factor = float(network["LoadFactor"])
-	head_node = table_get(cyme_table["headnode"],network_id,"NodeId")
 	glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}_{network_id}.glm")
 
 	glm = GLM(glmname,"w")
@@ -1035,28 +1027,32 @@ for network_id, network in cyme_table["network"].iterrows():
 		glm.add("switch", cyme_id, cyme_data)
 
 	# collapse links
-	done = False
-	while not done:
-		done = True
-		for name in list(glm.objects.keys()):
-			data = glm.objects[name]
-			if "class" in data.keys() and data["class"] == "link": # needs to be collapse
-				from_node = data["from"]
-				to_node = data["to"]
-				while "parent" in glm.objects[to_node].keys() and glm.objects[to_node]["parent"]["class"] == "node": # don't allow grandchild cyme_table["node"]
-					to_node = glm.objects[to_node]["parent"]
-				glm.objects[to_node]["parent"] = from_node
-				glm.delete(name)
-				done = False
-				break
-			elif "class" in data.keys() and data["class"] in ["node","load"] and "parent" in data.keys():
-				parent_name = data["parent"]
-				parent_data = glm.objects[parent_name]
-				if "class" in parent_data.keys() and parent_data["class"] in ["node","load"] and "parent" in parent_data.keys():
-					grandparent = parent_data["parent"]
-					data["parent"] = grandparent
+	try:
+		done = False
+		while not done:
+			done = True
+			for name in list(glm.objects.keys()):
+				data = glm.objects[name]
+				if "class" in data.keys() and data["class"] == "link": # needs to be collapse
+					from_node = data["from"]
+					to_node = data["to"]
+					while "parent" in glm.objects[to_node].keys() and glm.objects[to_node]["parent"]["class"] == "node": # don't allow grandchild cyme_table["node"]
+						to_node = glm.objects[to_node]["parent"]
+					glm.objects[to_node]["parent"] = from_node
+					glm.delete(name)
 					done = False
 					break
+				elif "class" in data.keys() and data["class"] in ["node","load"] and "parent" in data.keys():
+					parent_name = data["parent"]
+					parent_data = glm.objects[parent_name]
+					if "class" in parent_data.keys() and parent_data["class"] in ["node","load"] and "parent" in parent_data.keys():
+						grandparent = parent_data["parent"]
+						data["parent"] = grandparent
+						done = False
+						break
+	except Exception as exc:
+		format_exception("unable to collapse CYME links","glm.objects",glm.objects)
+		pass
 
 	#
 	# Check conversion
@@ -1070,6 +1066,28 @@ for network_id, network in cyme_table["network"].iterrows():
 			warning("%s: object '%s' uses abstract-only class '%s'" % (glm.filename,data["name"],data["class"]))
 
 	glm.close()
+
+#
+# Process cyme_table["network"]
+#
+cyme_extract = {
+	"5" : cyme_extract_5, # CYME version 5 database
+	"-" : cyme_extract_5, # default version to extract
+}
+network_count = 0
+for network_id, network in cyme_table["network"].iterrows():
+	
+	if not re.match(settings["GLM_NETWORK_MATCHES"],network_id):
+		continue
+	else:
+		network_count += 1
+
+	version = network["Version"]
+
+	if version[0] in cyme_extract.keys():
+		cyme_extract[version[0]](network_id,network)
+	else:
+		raise Exception(f"CYME model version {version} is not supported")
 
 #
 # Final checks
