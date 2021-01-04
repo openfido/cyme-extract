@@ -78,7 +78,7 @@ config = {
 input_folder = None
 output_folder = None
 data_folder = None
-config_file = f"config.csv"
+config_file = None
 opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:t",["help","config=","input=","output=","data=","cyme-tables"])
 
 def help(exit_code=None,details=False):
@@ -116,8 +116,8 @@ if output_folder == None:
 	raise Exception("output_folder must be specified using '-o|--OUTPUT DIR' option")
 if data_folder == None:
 	raise Exception("data_folder must be specified using '-d|--data DIR' option")
-
-print(f"DEBUG: input_folder={input_folder}, output_folder={output_folder}, data_folder={data_folder}, config_file={config_file}")
+if config_file == None:
+	config_file = f"{input_folder}/config.csv"
 
 #
 # Application information
@@ -179,7 +179,7 @@ def format_exception(errmsg,ref,data):
 	return "\n  " + tb + "Device '" + ref  + "' =\n  "+ dd
 
 #
-# Load user configuration ()
+# Load user configuration
 #
 config = pd.DataFrame({
 	"GLM_NETWORK_PREFIX" : [""],
@@ -193,16 +193,13 @@ config = pd.DataFrame({
 	"GLM_ASSUMPTIONS" : ["no"]
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
-try:
-	settings = pd.read_csv(config_file, dtype=str,
-		names=["name","value"],
-		comment = "#",
-		).set_index("name")
-	for name, values in settings.iterrows():
-		if name in config.index:
-			config["value"][name] = values[0]
-except:
-	pass
+settings = pd.read_csv(config_file, dtype=str,
+	names=["name","value"],
+	comment = "#",
+	).set_index("name")
+for name, values in settings.iterrows():
+	if name in config.index:
+		config["value"][name] = values[0]
 settings = config["value"]
 print(f"Running write_glm.py:")
 for name, data in config.iterrows():
@@ -536,17 +533,16 @@ class GLM:
 		for modify in settings["GLM_MODIFY"].split():
 			self.blank()
 			self.comment("",f"Modifications from '{modify}'","")
-			if os.path.exists(f"{output_folder}/{modify}"):
-				with open(f"{output_folder}/{modify}","r") as fh:
-					reader = csv.reader(fh)
-					for row in reader:
-						if 0 < len(row) < 3:
-							warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
-						elif len(row) > 3:
-							warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
-							self.modify(*row[0:3])
-						else:
-							self.modify(*row)
+			with open(f"{input_folder}/{modify}","r") as fh:
+				reader = csv.reader(fh)
+				for row in reader:
+					if 0 < len(row) < 3:
+						warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
+					elif len(row) > 3:
+						warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
+						self.modify(*row[0:3])
+					else:
+						self.modify(*row)
 
 	# general glm model add function
 	def add(self,oclass,device_id,data,call=None):

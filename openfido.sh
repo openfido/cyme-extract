@@ -161,7 +161,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
 		for PROC in ${POSTPROC}; do
-			( $SRCDIR/postproc/$PROC -i${OPENFIDO_INPUT} -o${OPENFIDO_OUTPUT} -cconfig.csv -d${CSVDIR} </dev/null )
+			( $SRCDIR/postproc/$PROC -i${OPENFIDO_INPUT} -o${OPENFIDO_OUTPUT} -c${OPENFIDO_INPUT}/config.csv -d${CSVDIR} </dev/null )
 		done
 	fi
 	(cd "$CSVDIR" ; zip -q "${OPENFIDO_OUTPUT}/${DATABASE%.*}.zip" *.csv )
