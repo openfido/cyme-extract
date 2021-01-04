@@ -2,7 +2,7 @@
 """OpenFIDO write_glm post-processor script
 
 Syntax:
-	host% python3 -m write_glm.py -i|--input INPUTDIR [-o|--output OUTPUTDIR] [-c|--config [CONFIGCSV]] [-h|--help] [-t|--cyme-tables]
+	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] [-h|--help] [-t|--cyme-tables]
 
 Concept of Operation
 --------------------
@@ -10,7 +10,7 @@ Concept of Operation
 Files are processed in the local folder, which must contain the required CSV files list in the `cyme_tables_required` 
 global variable. 
 
-Operation of this script is controlled by the file `../config.csv`:
+Operation of this script is controlled by the file `{INPUTDIR}/config.csv`:
 
 	TABLES,glm
 	EXTRACT,non-empty
@@ -25,10 +25,10 @@ Operation of this script is controlled by the file `../config.csv`:
 All output is written to the parent folder.  Currently the following files are generated, depending on the
 settings in control file:
 
-  - `../{MDBNAME}_{NETWORKID}.glm`
-  - `../{MDBNAME}_{NETWORKID}_assumptions.glm`
-  - `../{MDBNAME}_{NETWORKID}_assumptions.glm`
-  - `../{MDBNAME}_{NETWORKID}_assumptions.csv`
+  - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}.glm`
+  - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}_assumptions.glm`
+  - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}_assumptions.glm`
+  - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}_assumptions.csv`
 
 """
 
