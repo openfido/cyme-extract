@@ -141,7 +141,6 @@ if [ "$TABLES" = "glm" ]; then
 	TABLES=$($SRCDIR/postproc/write_glm.py --cyme-tables)
 fi
 
-
 # process the input files
 INDEX=index.csv
 echo "database,table,csvname,size,rows" > "$INDEX"
