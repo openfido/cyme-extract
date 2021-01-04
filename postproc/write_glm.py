@@ -1,7 +1,41 @@
 #!/usr/bin/python3
+"""OpenFIDO write_glm post-processor script
+
+Syntax:
+	host% python3 -m write_glm.py -i|--input INPUTDIR [-o|--output OUTPUTDIR] [-c|--config [CONFIGCSV]] [-h|--help] [-t|--cyme-tables]
+
+Concept of Operation
+--------------------
+
+Files are processed in the local folder, which must contain the required CSV files list in the `cyme_tables_required` 
+global variable. 
+
+Operation of this script is controlled by the file `../config.csv`:
+
+	TABLES,glm
+	EXTRACT,non-empty
+	POSTPROC,write_glm.py
+	GLM_NOMINAL_VOLTAGE,2.40178 kV
+	GLM_NETWORK_PREFIX,IEEE13_
+	GLM_INCLUDE,config.glm
+	GLM_MODIFY,modify.csv
+	GLM_DEFINE,SOLUTIONDUMP=yes
+	GLM_ASSUMPTIONS,include
+
+All output is written to the parent folder.  Currently the following files are generated, depending on the
+settings in control file:
+
+  - `../{MDBNAME}_{NETWORKID}.glm`
+  - `../{MDBNAME}_{NETWORKID}_assumptions.glm`
+  - `../{MDBNAME}_{NETWORKID}_assumptions.glm`
+  - `../{MDBNAME}_{NETWORKID}_assumptions.csv`
+
+"""
+
 app_version = 0
 
 import sys, os
+import getopt
 import subprocess
 import glob
 import datetime as dt
@@ -17,27 +51,73 @@ pp = pprint.PrettyPrinter(indent=4,compact=True)
 import traceback
 from copy import copy
 
-cyme_tables = [
+#
+# Required tables to operate properly
+#
+cyme_tables_required = [
 	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
 	"CYMOVERHEADBYPHASE","CYMOVERHEADLINEUNBALANCED","CYMEQCONDUCTOR",
 	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
 	"CYMSWITCH","CYMCUSTOMERLOAD","CYMSHUNTCAPACITOR",
 	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR"
 	]
-if len(sys.argv) > 1:
-	if sys.argv[1] == '--help':
-		print("Syntax: write_glm.py [options]")
-		print("Options:")
-		print("  --help          get this help")
-		print("  --cyme-tables   get list of CYME tables required to convert MDB to GLM")
-		quit(0)
-	elif sys.argv[1] == '--cyme-tables':
-		print(" ".join(cyme_tables))
-		quit(0)
-	else:
-		print(f"'{sys.argv[1]}' is not valid")
-		quit(1)
 
+#
+# Argument parsing
+#
+config = {
+	"input" : "/",
+	"output" : "/",
+	"from" : {},
+	"type" : {},
+	"options" : {
+		"config" : "specify config.csv",
+		"cyme-tables" : "get required CYME tables",
+	},
+}
+input_folder = None
+output_folder = None
+data_folder = None
+config_file = f"config.csv"
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:t",["help","config=","input=","output=","data=","cyme-tables"])
+
+def help(exit_code=None,details=False):
+	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-t|--cyme-tables] [-c|--config CSV]")
+	if details:
+		print(globals()[__name__].__doc__)
+	if type(exit_code) is int:
+		exit(exit_code)
+
+if not opts : 
+	help(1)
+
+for opt, arg in opts:
+	if opt in ("-h","--help"):
+		help(0,details=True)
+	elif opt in ("-c","--config"):
+		if arg:
+			config_file = arg.strip()
+		else:
+			print(config)
+	elif opt in ("-t","--cyme-tables"):
+		print(" ".join(cyme_tables_required))
+		sys.exit(0)
+	elif opt in ("-i", "--input"):
+		input_folder = arg.strip()
+	elif opt in ("-o", "--output"):
+		output_folder = arg.strip()
+	elif opt in ("-d", "--data"):
+		data_folder = arg.strip()
+	else:
+		error(f"{opt}={arg} is not a valid option");
+if input_folder == None:
+	raise Exception("input_folder must be specified using '-i|--input DIR' option")
+if output_folder == None:
+	raise Exception("output_folder must be specified using '-o|--OUTPUT DIR' option")
+if data_folder == None:
+	raise Exception("data_folder must be specified using '-d|--data DIR' option")
+
+print(f"DEBUG: input_folder={input_folder}, output_folder={output_folder}, data_folder={data_folder}, config_file={config_file}")
 
 #
 # Application information
@@ -48,6 +128,8 @@ app_path = "/"+"/".join(app_command.split("/")[0:-1])
 
 #
 # Git information
+#
+# TODO: change this to use gitpython module
 #
 def command(cmd,lang="utf-8"):
 	return subprocess.run(cmd.split(),stdout=subprocess.PIPE).stdout.decode(lang).strip()
@@ -60,7 +142,7 @@ os.chdir(app_workdir)
 #
 # CYME model information
 #
-cyme_mdbname = os.getenv("PWD").split("/")[-1]
+cyme_mdbname = data_folder.split("/")[-1]
 
 #
 # Warning/error handling
@@ -100,7 +182,7 @@ def format_exception(errmsg,ref,data):
 # Load user configuration ()
 #
 config = pd.DataFrame({
-	"GLM_NETWORK_PREFIX" : ["network_"],
+	"GLM_NETWORK_PREFIX" : [""],
 	"GLM_NETWORK_MATCHES" : [".*"],
 	"GLM_NOMINAL_VOLTAGE" : [""],
 	"GLM_INCLUDE" : [""],
@@ -112,7 +194,7 @@ config = pd.DataFrame({
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 try:
-	settings = pd.read_csv("../config.csv", dtype=str,
+	settings = pd.read_csv(config_file, dtype=str,
 		names=["name","value"],
 		comment = "#",
 		).set_index("name")
@@ -224,11 +306,15 @@ def table_get(table,id,column=None):
 #
 # Load all the model tables (table names have an "s" appended)
 #
-for filename in glob.iglob("*.csv"):
+cyme_table = {}
+for filename in glob.iglob(f"{data_folder}/*.csv"):
 	data = pd.read_csv(filename, dtype=str)
-	name = filename[0:-4]
 	index = data.columns[0]
-	globals()[name+"s"] = data.set_index(index)
+	name = os.path.basename(filename)[0:-4].lower()
+	cyme_table[name] = data.set_index(index)
+for filename in cyme_tables_required:
+	if filename[3:].lower() not in cyme_table.keys():
+		raise Exception(f"required CYME table '{filename}' is not found in {input_folder}")
 
 #
 # GLM file builder
@@ -429,8 +515,8 @@ class GLM:
 		# assumptions
 		if self.assumptions:
 			if settings["GLM_ASSUMPTIONS"] in ["save"]:
-				filename = f"{cyme_mdbname}_{network_id}_assumptions.glm"
-				with open(f"../{filename}","w") as fh:
+				filename = f"{settings['GLM_NETWORK_PREFIX']}{cyme_mdbname}_{network_id}_assumptions.glm"
+				with open(f"{output_folder}/{filename}","w") as fh:
 					print("// Assumptions for GLM conversion from database {cyme_mdbname} network {network_id}",file=fh)
 					for row in self.assumptions:
 						print(f"modify {row[0]}.{row[1]} \"{row[2]}\"; // {row[3]}",file=fh)
@@ -440,7 +526,7 @@ class GLM:
 				for row in self.assumptions:
 					self.modify(row[0],row[1],row[2],row[3])
 			elif settings["GLM_ASSUMPTIONS"] == "warn":
-				filename = f"../{cyme_mdbname}_{network_id}_assumptions.csv"
+				filename = f"{output_folder}/{cyme_mdbname}_{network_id}_assumptions.csv"
 				warning(f"{cyme_mdbname}@{network_id}: {len(self.assumptions)} assumptions made, see '{filename}' for details")
 				pd.DataFrame(self.assumptions).to_csv(filename,header=["object_name","property_name","value","remark"],index=False)
 			elif settings["GLM_ASSUMPTIONS"] != "ignore":
@@ -450,8 +536,8 @@ class GLM:
 		for modify in settings["GLM_MODIFY"].split():
 			self.blank()
 			self.comment("",f"Modifications from '{modify}'","")
-			if os.path.exists("../"+modify):
-				with open("../"+modify,"r") as fh:
+			if os.path.exists(f"{output_folder}/{modify}"):
+				with open(f"{output_folder}/{modify}","r") as fh:
 					reader = csv.reader(fh)
 					for row in reader:
 						if 0 < len(row) < 3:
@@ -477,7 +563,7 @@ class GLM:
 		from_node_id = section["FromNodeId"]
 		to_node_id = section["ToNodeId"]
 		device_dict = {}
-		for device_id, device in table_find(sectiondevices,SectionId=section_id).iterrows():
+		for device_id, device in table_find(cyme_table["sectiondevice"],SectionId=section_id).iterrows():
 			device_type = int(device["DeviceType"])
 			if device_type in glm_devices.keys():
 				device_name = self.name(device_id,"link")
@@ -532,7 +618,7 @@ class GLM:
 		configuration_name = self.name(configuration_id,"line_configuration")
 		length = float(line["Length"])
 		if not configuration_name in self.objects.keys():
-			configuration = eqoverheadlineunbalanceds.loc[configuration_id]
+			configuration = cyme_table["eqoverheadlineunbalanced"].loc[configuration_id]
 			conductorA_id = configuration["PhaseConductorIdA"]
 			conductorB_id = configuration["PhaseConductorIdB"]
 			conductorC_id = configuration["PhaseConductorIdC"]
@@ -558,7 +644,7 @@ class GLM:
 		for conductor_id in conductors:
 			conductor_name = self.name(conductor_id,"overhead_line_conductor")
 			if not conductor_name in self.objects.keys():
-				conductor = eqconductors.loc[conductor_id]
+				conductor = cyme_table["eqconductor"].loc[conductor_id]
 				gmr = float(conductor["GMR"])
 				r25 = float(conductor["R25"])
 				diameter = float(conductor["Diameter"])
@@ -579,7 +665,7 @@ class GLM:
 	def add_line_spacing(self,spacing_id):
 		spacing_name = self.name(spacing_id,"line_spacing")
 		if not spacing_name in self.objects.keys():
-			spacing = eqgeometricalarrangements.loc[spacing_id]
+			spacing = cyme_table["eqgeometricalarrangement"].loc[spacing_id]
 			Ax = float(spacing["ConductorA_Horizontal"])
 			Ay = float(spacing["ConductorA_Vertical"])
 			Bx = float(spacing["ConductorA_Horizontal"])
@@ -642,9 +728,9 @@ class GLM:
 
 	# add a load
 	def add_load(self,load_id,load):
-		section_id = table_get(sectiondevices,load_id,"SectionId")
-		section = table_get(sections,section_id)
-		device_type = int(table_get(sectiondevices,load_id,"DeviceType"))
+		section_id = table_get(cyme_table["sectiondevice"],load_id,"SectionId")
+		section = table_get(cyme_table["section"],section_id)
+		device_type = int(table_get(cyme_table["sectiondevice"],load_id,"DeviceType"))
 		if device_type == 20: # spot load is attached at from node of section
 			parent_name = self.name(section["FromNodeId"],"node")
 		elif device_type == 21: # distributed load is attached at to node of section
@@ -689,8 +775,8 @@ class GLM:
 
 	# add a capacitor
 	def add_capacitor(self,capacitor_id,capacitor):
-		section_id = table_get(sectiondevices,capacitor_id,"SectionId")
-		section = table_get(sections,section_id)
+		section_id = table_get(cyme_table["sectiondevice"],capacitor_id,"SectionId")
+		section = table_get(cyme_table["section"],section_id)
 		from_name = self.name(section["FromNodeId"],"node")
 		to_name = self.name(section["ToNodeId"],"node")
 
@@ -730,7 +816,7 @@ class GLM:
 	def add_transformer(self,transformer_id, transformer):
 		DeviceType = int(transformer["DeviceType"])
 		equipment_id = transformer["EquipmentId"]
-		equipment = eqtransformers.loc[equipment_id]
+		equipment = cyme_table["eqtransformer"].loc[equipment_id]
 		NominalRatingKVA = float(equipment["NominalRatingKVA"])
 		PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
 		SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
@@ -775,7 +861,7 @@ class GLM:
 	# add a regulator
 	def add_regulator(self, regulator_id, regulator):
 		equipment_id = regulator["EquipmentId"]
-		equipment = eqregulators.loc[equipment_id]
+		equipment = cyme_table["eqregulator"].loc[equipment_id]
 
 		CTPrimaryRating = float(regulator["CTPrimaryRating"])
 		PTRatio = float(regulator["PTRatio"])
@@ -832,10 +918,10 @@ class GLM:
 			})
 
 #
-# Process networks
+# Process cyme_table["network"]
 #
 network_count = 0
-for network_id, network in networks.iterrows():
+for network_id, network in cyme_table["network"].iterrows():
 	
 	if not re.match(settings["GLM_NETWORK_MATCHES"],network_id):
 		continue
@@ -846,8 +932,8 @@ for network_id, network in networks.iterrows():
 	creation_time = int(network["CreationTime"])
 	last_change = int(network["LastChange"])
 	load_factor = float(network["LoadFactor"])
-	head_node = table_get(headnodes,network_id,"NodeId")
-	glmname = os.path.abspath(f"../{settings['GLM_NETWORK_PREFIX']}{network_id}.glm")
+	head_node = table_get(cyme_table["headnode"],network_id,"NodeId")
+	glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}_{network_id}.glm")
 
 	glm = GLM(glmname,"w")
 	glm.comment(
@@ -907,8 +993,8 @@ for network_id, network in networks.iterrows():
 	device_dict = {}
 	node_links = {}
 
-	# nodes graph data
-	for node_id, node in table_find(nodes,NetworkId=network_id).iterrows():
+	# cyme_table["node"] graph data
+	for node_id, node in table_find(cyme_table["node"],NetworkId=network_id).iterrows():
 		node_links[node_id] = [] # incident links
 		node_dict[node_id] = [] # node dictionary
 
@@ -916,40 +1002,40 @@ for network_id, network in networks.iterrows():
 	glm.comment("","Objects","")
 
 	# links
-	for section_id, section in table_find(sections,NetworkId=network_id).iterrows():
+	for section_id, section in table_find(cyme_table["section"],NetworkId=network_id).iterrows():
 		links = glm.add("link",section_id,section)
 		if links:
 			device_dict.update(links)
 
-	# nodes
+	# cyme_table["node"]
 	for node_id in node_dict.keys():
 		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict)
 
 	# overhead lines
-	for cyme_id, cyme_data in table_find(overheadbyphases,NetworkId=network_id).iterrows():
+	for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
 		glm.add("overhead_line", cyme_id, cyme_data)
 
 	# unbalanced overhead lines
-	for cyme_id, cyme_data in table_find(overheadlineunbalanceds,NetworkId=network_id).iterrows():
+	for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
 		glm.add("overhead_line_unbalanced", cyme_id, cyme_data)
 
-	# loads
-	for cyme_id, cyme_data in table_find(customerloads,NetworkId=network_id).iterrows():
+	# cyme_table["load"]
+	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
 		glm.add("load", cyme_id, cyme_data)
 
-	# transformers
-	for cyme_id, cyme_data in table_find(transformers,NetworkId=network_id).iterrows():
+	# cyme_table["transformer"]
+	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
 		glm.add("transformer", cyme_id, cyme_data)
 
-	# regulators
-	for cyme_id, cyme_data in table_find(regulators,NetworkId=network_id).iterrows():
+	# cyme_table["regulator"]
+	for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
 		glm.add("regulator", cyme_id, cyme_data)
 
-	# capacitors
-	for cyme_id, cyme_data in table_find(shuntcapacitors,NetworkId=network_id).iterrows():
+	# cyme_table["capacitor"]
+	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
 		glm.add("capacitor", cyme_id, cyme_data)
 	# switches
-	for cyme_id, cyme_data in table_find(switchs,NetworkId=network_id).iterrows():
+	for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
 		glm.add("switch", cyme_id, cyme_data)
 
 	# collapse links
@@ -961,7 +1047,7 @@ for network_id, network in networks.iterrows():
 			if "class" in data.keys() and data["class"] == "link": # needs to be collapse
 				from_node = data["from"]
 				to_node = data["to"]
-				while "parent" in glm.objects[to_node].keys() and glm.objects[to_node]["parent"]["class"] == "node": # don't allow grandchild nodes
+				while "parent" in glm.objects[to_node].keys() and glm.objects[to_node]["parent"]["class"] == "node": # don't allow grandchild cyme_table["node"]
 					to_node = glm.objects[to_node]["parent"]
 				glm.objects[to_node]["parent"] = from_node
 				glm.delete(name)

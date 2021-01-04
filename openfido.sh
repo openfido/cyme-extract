@@ -136,16 +136,17 @@ elif [ ! -z "${TIMEZONE:-}" ]; then
 	done
 fi
 
-# special case for files needed by glm converter
-if [ "$TABLES" = "glm" -a -x "$SRCDIR/postproc/write_glm.py" ]; then
+# get list of required tables
+if [ "$TABLES" = "glm" ]; then
 	TABLES=$($SRCDIR/postproc/write_glm.py --cyme-tables)
 fi
+
 
 # process the input files
 INDEX=index.csv
 echo "database,table,csvname,size,rows" > "$INDEX"
 for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
-	CSVDIR=${DATABASE%.*}
+	CSVDIR=$PWD/${DATABASE%.*}
 	mkdir -p "$CSVDIR"
 	for TABLE in ${TABLES:-$(mdb-tables "$DATABASE")}; do
 		CSV=$(echo $TABLE | cut -c4- | tr A-Z a-z).csv
@@ -160,10 +161,10 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
 		for PROC in ${POSTPROC}; do
-			( cd $CSVDIR ; sh -c $SRCDIR/postproc/$PROC </dev/null )
+			( $SRCDIR/postproc/$PROC -i${OPENFIDO_INPUT} -o${OPENFIDO_OUTPUT} -cconfig.csv -d${CSVDIR} </dev/null )
 		done
 	fi
-	(cd "$CSVDIR" ; zip -q "../$CSVDIR.zip" *.csv )
+	(cd "$CSVDIR" ; zip -q "${OPENFIDO_OUTPUT}/${DATABASE%.*}.zip" *.csv )
 	rm -rf "$CSVDIR"
 done
 

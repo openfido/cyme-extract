@@ -4,6 +4,7 @@
 Configuration settings (config.csv):
 
   - PNG_POSTPROC   must be set to "network_graph.py"
+  - PNG_FIGNAME    name of figure (default "network_graph.png")
   - PNG_FIGSIZE    PNG image dimensions (default "9x6")
   - PNG_NODESIZE   size of nodes (default "10")
   - PNG_NODECOLOR  color nodes (default "byphase")
@@ -25,14 +26,66 @@ Supported layouts:
 	multipartite   layers by distance from root node
 """
 
+import sys, getopt
 import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
+
+#
+# Required tables to operate properly
+#
+cyme_tables = ["CYMNETWORK","CYMNODE","CYMSECTION"]
+
+#
+# Argument parsing
+#
+config = {"input":"/","output":"/","from":[],"type":[]}
+input_folder = "."
+output_folder = ".."
+config_file = "config.csv"
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:t",["help","config=","input=","output=","data=","cyme-tables"])
+
+def help(exit_code=None,details=False):
+	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-c|--config CSV] [-h|--help] [-t|--cyme-tables]")
+	if details:
+		print(globals()[__name__].__doc__)
+	if type(exit_code) is int:
+		exit(exit_code)
+
+if not opts : 
+	help(1)
+
+for opt, arg in opts:
+	if opt in ("-h","--help"):
+		help(0,details=True)
+	elif opt in ("-c","--config"):
+		if arg:
+			config_file = arg.strip()
+		else:
+			print(config)
+	elif opt in ("-t","--cyme-tables"):
+		print(" ".join(cyme_tables))
+		sys.exit(0)
+	elif opt in ("-i", "--input"):
+		input_folder = arg.strip()
+	elif opt in ("-o", "--output"):
+		output_folder = arg.strip()
+	elif opt in ("-d", "--data"):
+		data_folder = arg.strip()
+	else:
+		error(f"{opt}={arg} is not a valid option");
+if input_folder == None:
+	raise Exception("input_folder must be specified using '-i|--input DIR' option")
+if output_folder == None:
+	raise Exception("output_folder must be specified using '-o|--OUTPUT DIR' option")
+if data_folder == None:
+	raise Exception("data_folder must be specified using '-d|--data DIR' option")
 
 # load the configuration
 config = pd.DataFrame({
 	"PNG_FIGSIZE" : ["9x6"],
 	"PNG_FONTSIZE" : ["8"],
+	"PNG_FIGNAME" : ["network_graph.png"],
 	"PNG_NODESIZE" : ["10"],
 	"PNG_NODECOLOR" : ["byphase"],
 	"PNG_LAYOUT" : ["nodexy"],
@@ -40,7 +93,7 @@ config = pd.DataFrame({
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 try:
-	settings = pd.read_csv("../config.csv",
+	settings = pd.read_csv(f"{input_folder}/config.csv",
 		names=["name","value"],
 		comment = "#",
 		).set_index("name")
@@ -56,9 +109,9 @@ for name, data in config.iterrows():
 del config
 
 # load the model
-network = pd.read_csv("network.csv")
-nodes = pd.read_csv("node.csv")
-section = pd.read_csv("section.csv")
+network = pd.read_csv(f"{data_folder}/network.csv")
+nodes = pd.read_csv(f"{data_folder}/node.csv")
+section = pd.read_csv(f"{data_folder}/section.csv")
 
 # generate the graph
 graph = nx.Graph()
@@ -137,4 +190,4 @@ nx.draw(graph, pos,
 	node_color = node_colors,
 	font_size = int(settings["PNG_FONTSIZE"]),
 	)
-plt.savefig("../network_graph.png")
+plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
