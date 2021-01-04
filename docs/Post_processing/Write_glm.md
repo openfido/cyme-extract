@@ -19,6 +19,8 @@ Shell:
 bash% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] [-h|--help] [-t|--cyme-tables]
 ~~~
 
+# Description
+
 The `write_glm` postprocessor can be used by adding the line `POSTPROC,write_glm.py` to the `config.csv` file.
 
 Settings in the `config.csv` file that affect the `write_glm` processor include:
@@ -41,8 +43,6 @@ The general structure of the output GLM is as follows:
 4. `powerflow` module statement to select the `NR` solver.
 5. `object` definitions from the CYME database
 6. `modify` statements from the `GLM_MODIFY` setting, if any.
-
-## Command line usage
 
 ## Globals
 
@@ -210,7 +210,7 @@ CYME record ids are converted to GridLAB-D object names using a name prefix base
 
 If a class is not found, the prefix `Z<num>_` is used where `<num>` is a number based on the size of the class in the class name dictionary at the time the new prefix was create.
 
-## Example
+# Example
 
 The following example converts the `IEEE13.mdb` file to GridLAB-D `glm` format:
 
