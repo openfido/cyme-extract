@@ -160,7 +160,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
 		for PROC in ${POSTPROC}; do
-			( cd $CSVDIR ; sh -c $SRCDIR/postproc/$PROC )
+			( cd $CSVDIR ; sh -c $SRCDIR/postproc/$PROC </dev/null )
 		done
 	fi
 	(cd "$CSVDIR" ; zip -q "../$CSVDIR.zip" *.csv )
