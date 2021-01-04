@@ -143,6 +143,7 @@ os.chdir(app_workdir)
 # CYME model information
 #
 cyme_mdbname = data_folder.split("/")[-1]
+default_cyme_extractor = "50"
 
 #
 # Warning/error handling
@@ -190,7 +191,7 @@ config = pd.DataFrame({
 	"GLM_ERRORS" : ["exception"],
 	"GLM_WARNINGS" : ["stdout"],
 	"GLM_MODIFY" : [""],
-	"GLM_ASSUMPTIONS" : ["no"]
+	"GLM_ASSUMPTIONS" : ["include"]
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 settings = pd.read_csv(config_file, dtype=str,
@@ -511,7 +512,7 @@ class GLM:
 
 		# assumptions
 		if self.assumptions:
-			if settings["GLM_ASSUMPTIONS"] in ["save"]:
+			if settings["GLM_ASSUMPTIONS"] == "save":
 				filename = f"{settings['GLM_NETWORK_PREFIX']}{cyme_mdbname}_{network_id}_assumptions.glm"
 				with open(f"{output_folder}/{filename}","w") as fh:
 					print("// Assumptions for GLM conversion from database {cyme_mdbname} network {network_id}",file=fh)
@@ -527,7 +528,7 @@ class GLM:
 				warning(f"{cyme_mdbname}@{network_id}: {len(self.assumptions)} assumptions made, see '{filename}' for details")
 				pd.DataFrame(self.assumptions).to_csv(filename,header=["object_name","property_name","value","remark"],index=False)
 			elif settings["GLM_ASSUMPTIONS"] != "ignore":
-				warning(f"GLM_ASSUMPTIONS={settings['GLM_ASSUMPTIONS']} is not valid (must be one of 'yes','no','warn','include')")
+				warning(f"GLM_ASSUMPTIONS={settings['GLM_ASSUMPTIONS']} is not valid (must be one of 'save','ignore','warn','include')")
 		
 		# modifications
 		for modify in settings["GLM_MODIFY"].split():
@@ -545,16 +546,16 @@ class GLM:
 						self.modify(*row)
 
 	# general glm model add function
-	def add(self,oclass,device_id,data,call=None):
+	def add(self,oclass,device_id,data,version,**kwargs):
 		try:
 			call = getattr(self,"add_"+oclass)
-			return call(device_id,data)
+			return call(device_id,data,version=version,**kwargs)
 		except Exception as errmsg:
 			warning(f"{cyme_mdbname}@{network_id}: unable to add gridlabd class '{oclass}' using CYME device '{device_id}': {errmsg} {format_exception(errmsg,device_id,data.to_dict())}")
 			pass 	
 
 	# add a link to glm file
-	def add_link(self,section_id,section):
+	def add_link(self,section_id,section,version,**kwargs):
 		phase = int(section["Phase"])
 		from_node_id = section["FromNodeId"]
 		to_node_id = section["ToNodeId"]
@@ -569,14 +570,14 @@ class GLM:
 					"from" : self.name(from_node_id,"node"),
 					"to" : self.name(to_node_id,"node"),
 					})
-				node_links[from_node_id].append(device_id)
-				node_links[to_node_id].append(device_id)
+				kwargs["node_links"][from_node_id].append(device_id)
+				kwargs["node_links"][to_node_id].append(device_id)
 			else:
 				warning(f"{cyme_mdbname}@{network_id}: {cyme_devices[device_type]} on section {section_id} has no corresponding GLM object")
 		return device_dict
 
 	# add node to glm file
-	def add_node(self,node_id,node_links,device_dict):
+	def add_node(self,node_id,node_links,device_dict,version):
 		phase = 0
 		for device_id in node_links[node_id]:
 			phase |= glm_phase_code[device_dict[device_id]["phases"]]
@@ -591,24 +592,24 @@ class GLM:
 		return obj
 
 	# add an overhead based on a link
-	def add_overhead_line(self,line_id,line):
+	def add_overhead_line(self,line_id,line,version):
 		line_name = self.name(line_id,"link")
 		length = float(line["Length"])
 		conductorA_id = line["PhaseConductorIdA"]
 		conductorB_id = line["PhaseConductorIdB"]
 		conductorC_id = line["PhaseConductorIdC"]
 		conductorN_id = line["NeutralConductorId"]
-		self.add_overhead_line_conductors([conductorA_id,conductorB_id,conductorC_id,conductorN_id])
+		self.add_overhead_line_conductors([conductorA_id,conductorB_id,conductorC_id,conductorN_id],version)
 		spacing_id = line["ConductorSpacingId"]
-		self.add_line_spacing(spacing_id)
-		configuration_name = self.add_line_configuration([conductorA_id,conductorB_id,conductorC_id,conductorN_id,spacing_id])
+		self.add_line_spacing(spacing_id,version)
+		configuration_name = self.add_line_configuration([conductorA_id,conductorB_id,conductorC_id,conductorN_id,spacing_id],version)
 		return self.object("overhead_line", line_name, {
 			"length" : "%.2f m"%length,
 			"configuration" : configuration_name,
 			})
 
 	# add an unbalanced overhead line based on a link
-	def add_overhead_line_unbalanced(self,line_id,line):
+	def add_overhead_line_unbalanced(self,line_id,line,version):
 		line_name = self.name(line_id,"link")
 		configuration_id = line["LineId"]
 		configuration_name = self.name(configuration_id,"line_configuration")
@@ -619,9 +620,9 @@ class GLM:
 			conductorB_id = configuration["PhaseConductorIdB"]
 			conductorC_id = configuration["PhaseConductorIdC"]
 			conductorN_id = configuration["NeutralConductorId"]
-			conductor_names = self.add_overhead_line_conductors([conductorA_id,conductorB_id,conductorC_id,conductorN_id])
+			conductor_names = self.add_overhead_line_conductors([conductorA_id,conductorB_id,conductorC_id,conductorN_id],version)
 			spacing_id = configuration["ConductorSpacingId"]
-			spacing_name = self.add_line_spacing(spacing_id)
+			spacing_name = self.add_line_spacing(spacing_id,version)
 			self.object("line_configuration",configuration_name,{
 				"conductor_A" : conductor_names[0],
 				"conductor_B" : conductor_names[1],
@@ -635,7 +636,7 @@ class GLM:
 			})
 
 	# add overhead line conductor library entry
-	def add_overhead_line_conductors(self,conductors):
+	def add_overhead_line_conductors(self,conductors,version):
 		conductor_names = []
 		for conductor_id in conductors:
 			conductor_name = self.name(conductor_id,"overhead_line_conductor")
@@ -658,7 +659,7 @@ class GLM:
 		return conductor_names
 
 	# line spacing library object
-	def add_line_spacing(self,spacing_id):
+	def add_line_spacing(self,spacing_id,version):
 		spacing_name = self.name(spacing_id,"line_spacing")
 		if not spacing_name in self.objects.keys():
 			spacing = cyme_table["eqgeometricalarrangement"].loc[spacing_id]
@@ -691,7 +692,7 @@ class GLM:
 		return spacing_name
 
 	# line configuration library object
-	def add_line_configuration(self,items):
+	def add_line_configuration(self,items,version):
 		configuration_id = "_".join(items)
 		configuration_name = self.name(configuration_id,"line_configuration")
 		if not configuration_name in self.objects.keys():
@@ -712,7 +713,7 @@ class GLM:
 			return "OPEN"
 
 	# add a switch based on a link
-	def add_switch(self,switch_id,switch):
+	def add_switch(self,switch_id,switch,version):
 		switch_name = self.name(switch_id,"link")
 		phases = cyme_phase_name[int(switch["ClosedPhase"])]
 		return self.object("switch", switch_name, {
@@ -723,7 +724,7 @@ class GLM:
 			})
 
 	# add a load
-	def add_load(self,load_id,load):
+	def add_load(self,load_id,load,version):
 		section_id = table_get(cyme_table["sectiondevice"],load_id,"SectionId")
 		section = table_get(cyme_table["section"],section_id)
 		device_type = int(table_get(cyme_table["sectiondevice"],load_id,"DeviceType"))
@@ -770,7 +771,7 @@ class GLM:
 			warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[device_type]}' is not a supported CYME device type")
 
 	# add a capacitor
-	def add_capacitor(self,capacitor_id,capacitor):
+	def add_capacitor(self,capacitor_id,capacitor,version):
 		section_id = table_get(cyme_table["sectiondevice"],capacitor_id,"SectionId")
 		section = table_get(cyme_table["section"],section_id)
 		from_name = self.name(section["FromNodeId"],"node")
@@ -809,7 +810,7 @@ class GLM:
 			})
 
 	# add a transformer
-	def add_transformer(self,transformer_id, transformer):
+	def add_transformer(self,transformer_id, transformer,version):
 		DeviceType = int(transformer["DeviceType"])
 		equipment_id = transformer["EquipmentId"]
 		equipment = cyme_table["eqtransformer"].loc[equipment_id]
@@ -855,7 +856,7 @@ class GLM:
 			})
 
 	# add a regulator
-	def add_regulator(self, regulator_id, regulator):
+	def add_regulator(self, regulator_id, regulator, version):
 		equipment_id = regulator["EquipmentId"]
 		equipment = cyme_table["eqregulator"].loc[equipment_id]
 
@@ -916,7 +917,7 @@ class GLM:
 #
 # CYME 5 MDB extractor
 #
-def cyme_extract_5(network_id,network):
+def cyme_extract_5020(network_id,network):
 
 	creation_time = int(network["CreationTime"])
 	last_change = int(network["LastChange"])
@@ -991,47 +992,47 @@ def cyme_extract_5(network_id,network):
 
 	# links
 	for section_id, section in table_find(cyme_table["section"],NetworkId=network_id).iterrows():
-		links = glm.add("link",section_id,section)
+		links = glm.add("link",section_id,section, version=5020, node_links=node_links)
 		if links:
 			device_dict.update(links)
 
 	# cyme_table["node"]
 	for node_id in node_dict.keys():
-		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict)
+		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020)
 
 	# overhead lines
 	for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
-		glm.add("overhead_line", cyme_id, cyme_data)
+		glm.add("overhead_line", cyme_id, cyme_data, version=5020)
 
 	# unbalanced overhead lines
 	for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
-		glm.add("overhead_line_unbalanced", cyme_id, cyme_data)
+		glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
 
 	# cyme_table["load"]
 	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
-		glm.add("load", cyme_id, cyme_data)
+		glm.add("load", cyme_id, cyme_data, version=5020)
 
 	# cyme_table["transformer"]
 	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
-		glm.add("transformer", cyme_id, cyme_data)
+		glm.add("transformer", cyme_id, cyme_data, version=5020)
 
 	# cyme_table["regulator"]
 	for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
-		glm.add("regulator", cyme_id, cyme_data)
+		glm.add("regulator", cyme_id, cyme_data, version=5020)
 
 	# cyme_table["capacitor"]
 	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
-		glm.add("capacitor", cyme_id, cyme_data)
+		glm.add("capacitor", cyme_id, cyme_data, version=5020)
 	# switches
 	for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
-		glm.add("switch", cyme_id, cyme_data)
+		glm.add("switch", cyme_id, cyme_data, version=5020)
 
 	# collapse links
-	try:
-		done = False
-		while not done:
-			done = True
-			for name in list(glm.objects.keys()):
+	done = False
+	while not done:
+		done = True
+		for name in list(glm.objects.keys()):
+			try:
 				data = glm.objects[name]
 				if "class" in data.keys() and data["class"] == "link": # needs to be collapse
 					from_node = data["from"]
@@ -1050,9 +1051,10 @@ def cyme_extract_5(network_id,network):
 						data["parent"] = grandparent
 						done = False
 						break
-	except Exception as exc:
-		format_exception("unable to collapse CYME links","glm.objects",glm.objects)
-		pass
+			except Exception as exc:
+				warning(format_exception("link removal failed",name,glm.objects[name]))
+				glm.delete(name)
+				pass
 
 	#
 	# Check conversion
@@ -1071,9 +1073,9 @@ def cyme_extract_5(network_id,network):
 # Process cyme_table["network"]
 #
 cyme_extract = {
-	"5" : cyme_extract_5, # CYME version 5 database
-	"-" : cyme_extract_5, # default version to extract
+	"50" : cyme_extract_5020, # CYME version 5 database
 }
+cyme_extract["-1"] = cyme_extract[str(default_cyme_extractor)]
 network_count = 0
 for network_id, network in cyme_table["network"].iterrows():
 	
@@ -1083,10 +1085,14 @@ for network_id, network in cyme_table["network"].iterrows():
 		network_count += 1
 
 	version = network["Version"]
-
-	if version[0] in cyme_extract.keys():
-		cyme_extract[version[0]](network_id,network)
-	else:
+	found = False
+	for key, extractor in cyme_extract.items():
+		if re.match(key,version):
+			if version == "-1":
+				warning(f"CYME model version is not specified (version=-1), using default extractor for version '{default_cyme_extractor}*'")
+			extractor(network_id,network)
+			found = True
+	if not found:
 		raise Exception(f"CYME model version {version} is not supported")
 
 #
