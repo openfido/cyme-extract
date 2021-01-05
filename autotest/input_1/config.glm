@@ -16,11 +16,11 @@ module powerflow;
 #ifdef SOLUTIONDUMP
 object voltdump 
 {
-	filename "$CYME_MDBNAME-$CYME_NETWORKID-voltdump.csv";
+	filename "${CYME_MDBNAME}-${CYME_NETWORKID}-voltdump.csv";
 }
 
 object currdump 
 {
-	filename "$CYME_MDBNAME-$CYME_NETWORKID-currdump.csv";
+	filename "${CYME_MDBNAME}-${CYME_NETWORKID}-currdump.csv";
 }
 #endif
