@@ -179,4 +179,4 @@ for EXT in ${OUTPUTS:-${DEFAULT_OUTPUT}}; do
 	done
 done
 echo "Creating zipfile..."
-zip $OPENFIDO_OUTPUT/_Download_all.zip $OPENFIDO_OUTPUT/* -x $OPENFIDO_OUTPUT/_Download_all.zip
+zip -j $OPENFIDO_OUTPUT/_Download_all.zip $OPENFIDO_OUTPUT/* -x $OPENFIDO_OUTPUT/_Download_all.zip
