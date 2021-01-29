@@ -178,4 +178,5 @@ for EXT in ${OUTPUTS:-${DEFAULT_OUTPUT}}; do
 		mv $FILE "$OPENFIDO_OUTPUT"
 	done
 done
-
+echo "Creating zipfile..."
+zip $OPENFIDO_OUTPUT/Download.zip $OPENFIDO_OUTPUT/* -x $OPENFIDO_OUTPUT/Download.zip
