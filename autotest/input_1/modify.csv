@@ -8,4 +8,3 @@ LD_LOAD675,phases,ABC
 LD_LOAD692,phases,ABCD
 LK_650REG,sense_node,ND_671
 RC_2V_30s,Control,REMOTE_NODE
-RC_2V_30s,band_center,2300V
