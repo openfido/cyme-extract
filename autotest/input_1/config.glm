@@ -24,3 +24,5 @@ object currdump
 	filename "${CYME_MDBNAME}-${CYME_NETWORKID}-currdump.csv";
 }
 #endif
+
+#output "voltage.png" -t profile
