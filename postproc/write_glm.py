@@ -780,7 +780,7 @@ class GLM:
 			load_value2 = float(load["LoadValue2"]) * 1000
 			# from the mdb file, type for constant power load is defined as PQ
 			load_types = {"Z":"constant_impedance","I":"constant_current","PQ":"constant_power"}
-			if ConsumerClassId in load_types.keys():
+			if ConsumerClassId in load_types.keys() and (load_value1*load_value1+load_value2*load_value2) > 0:
 				load_cals_complex = load_cals(ConsumerClassId,load["Phase"],load_value1,load_value2)
 				load_value1 = load_cals_complex.real
 				load_value2 = -load_cals_complex.imag
@@ -790,7 +790,7 @@ class GLM:
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
-			elif ConsumerClassId in ["PV","SWING","SWINGPQ"]: # GLM bus types allowed
+			elif ConsumerClassId in ["PV","SWING","SWINGPQ"] and (load_value1*load_value1+load_value2*load_value2) > 0: # GLM bus types allowed
 				load_cals_complex = load_cals("Z",load["Phase"],load_value1,load_value2)
 				load_value1 = load_cals_complex.real
 				load_value2 = -load_cals_complex.imag
