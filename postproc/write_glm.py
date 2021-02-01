@@ -65,6 +65,7 @@ cyme_tables_required = [
 	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR"
 	]
 
+
 #
 # Argument parsing
 #
