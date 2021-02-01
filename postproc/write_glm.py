@@ -61,7 +61,7 @@ cyme_tables_required = [
 	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
 	"CYMOVERHEADBYPHASE","CYMOVERHEADLINEUNBALANCED","CYMEQCONDUCTOR",
 	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
-	"CYMSWITCH","CYMCUSTOMERLOAD","CYMSHUNTCAPACITOR",
+	"CYMSWITCH","CYMCUSTOMERLOAD","CYMLOAD","CYMSHUNTCAPACITOR",
 	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR"
 	]
 
@@ -305,18 +305,26 @@ def table_get(table,id,column=None):
 	else:
 		return table.loc[id][column]
 
-def load_cals(load_type,load_phase,load_power1,load_power2):
+def load_cals(load_type,load_phase,connection,load_power1,load_power2):
 	phase_number=int(load_phase)
 	# default_model_voltage in kV
-	vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2/3)*1000
-	vol_imag = float(default_model_voltage)*sin((1-phase_number)*pi*2/3)*1000
+	if connection == 0: # wye connecttion
+		vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2.0/3.0)*1000.0
+		vol_imag = float(default_model_voltage)*sin((1-phase_number)*pi*2.0/3.0)*1000.0
+		line_phase_gain = 1
+	elif connection == 2: # delta connection
+		vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
+		vol_imag = float(default_model_voltage)*sin((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
+		line_phase_gain = sqrt(3.0)
+	else:
+		error("wrong connection type")
 	vol_mag = float(default_model_voltage)*1000
 	vol_complex = vol_real+vol_imag*(1j)
 	if load_type == "Z":
-		load_cals_results = vol_mag*vol_mag/(load_power1+load_power2*(1j))
+		load_cals_results = vol_mag*line_phase_gain*vol_mag*line_phase_gain/(load_power1+load_power2*(1j))
 		return load_cals_results
 	elif load_type == "I":
-		load_cals_results  = (load_power1+load_power2*(1j))/vol_complex
+		load_cals_results  = (load_power1+load_power2*(1j))/(vol_complex*line_phase_gain)
 		return load_cals_results	
 	else:
 		# for constant power load, the imag part is negative
@@ -754,6 +762,7 @@ class GLM:
 		section_id = table_get(cyme_table["sectiondevice"],load_id,"SectionId")
 		section = table_get(cyme_table["section"],section_id)
 		device_type = int(table_get(cyme_table["sectiondevice"],load_id,"DeviceType"))
+		connection_type = int(table_get(cyme_table["load"],load_id,"ConnectionConfiguration"))
 		if device_type == 20: # spot load is attached at from node of section
 			parent_name = self.name(section["FromNodeId"],"node")
 		elif device_type == 21: # distributed load is attached at to node of section
@@ -781,7 +790,7 @@ class GLM:
 			# from the mdb file, type for constant power load is defined as PQ
 			load_types = {"Z":"constant_impedance","I":"constant_current","PQ":"constant_power"}
 			if ConsumerClassId in load_types.keys() and (load_value1*load_value1+load_value2*load_value2) > 0:
-				load_cals_complex = load_cals(ConsumerClassId,load["Phase"],load_value1,load_value2)
+				load_cals_complex = load_cals(ConsumerClassId,load["Phase"],connection_type,load_value1,load_value2)
 				load_value1 = load_cals_complex.real
 				load_value2 = -load_cals_complex.imag
 				return self.object("load",load_name,{
@@ -791,7 +800,7 @@ class GLM:
 					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
 			elif ConsumerClassId in ["PV","SWING","SWINGPQ"] and (load_value1*load_value1+load_value2*load_value2) > 0: # GLM bus types allowed
-				load_cals_complex = load_cals("Z",load["Phase"],load_value1,load_value2)
+				load_cals_complex = load_cals("Z",load["Phase"],connection_type,load_value1,load_value2)
 				load_value1 = load_cals_complex.real
 				load_value2 = -load_cals_complex.imag
 				return self.object("load",load_name,{
