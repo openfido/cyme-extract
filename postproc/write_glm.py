@@ -43,6 +43,9 @@ import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
 from math import sqrt
+from math import cos
+from math import sin
+from math import pi
 import re
 import hashlib
 import csv
@@ -58,9 +61,10 @@ cyme_tables_required = [
 	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
 	"CYMOVERHEADBYPHASE","CYMOVERHEADLINEUNBALANCED","CYMEQCONDUCTOR",
 	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
-	"CYMSWITCH","CYMCUSTOMERLOAD","CYMSHUNTCAPACITOR",
+	"CYMSWITCH","CYMCUSTOMERLOAD","CYMLOAD","CYMSHUNTCAPACITOR",
 	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR"
 	]
+
 
 #
 # Argument parsing
@@ -205,6 +209,7 @@ settings = config["value"]
 print(f"Running write_glm.py:")
 for name, data in config.iterrows():
 	print(f"  {name} = {data['value']}")
+default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
 
 #
 # Phase mapping
@@ -300,6 +305,32 @@ def table_get(table,id,column=None):
 		return table.loc[id]
 	else:
 		return table.loc[id][column]
+
+def load_cals(load_type,load_phase,connection,load_power1,load_power2):
+	phase_number=int(load_phase)
+	# default_model_voltage in kV
+	if connection == 0: # wye connecttion
+		vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2.0/3.0)*1000.0
+		vol_imag = float(default_model_voltage)*sin((1-phase_number)*pi*2.0/3.0)*1000.0
+		line_phase_gain = 1
+	elif connection == 2: # delta connection
+		vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
+		vol_imag = float(default_model_voltage)*sin((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
+		line_phase_gain = sqrt(3.0)
+	else:
+		error("wrong connection type")
+	vol_mag = float(default_model_voltage)*1000
+	vol_complex = vol_real+vol_imag*(1j)
+	if load_type == "Z":
+		load_cals_results = vol_mag*line_phase_gain*vol_mag*line_phase_gain/(load_power1+load_power2*(1j))
+		return load_cals_results
+	elif load_type == "I":
+		load_cals_results  = (load_power1+load_power2*(1j))/(vol_complex*line_phase_gain)
+		return load_cals_results	
+	else:
+		# for constant power load, the imag part is negative
+		load_cals_results = load_power1-load_power2*(1j)
+		return load_cals_results
 
 #
 # Load all the model tables (table names have an "s" appended)
@@ -646,6 +677,10 @@ class GLM:
 				r25 = float(conductor["R25"])
 				diameter = float(conductor["Diameter"])
 				nominal_rating = float(conductor["NominalRating"])
+				# should set up NONE conductor rating as non-zero value
+				# cannot use modify.csv to change the ratings fior OC_NONE
+				if nominal_rating == 0:
+					nominal_rating = 1000				
 				obj = self.object("overhead_line_conductor",conductor_name,{
 					"geometric_mean_radius" : "%.2f cm" % gmr,
 					"resistance" : "%.5f Ohm/km" % r25,
@@ -665,10 +700,10 @@ class GLM:
 			spacing = cyme_table["eqgeometricalarrangement"].loc[spacing_id]
 			Ax = float(spacing["ConductorA_Horizontal"])
 			Ay = float(spacing["ConductorA_Vertical"])
-			Bx = float(spacing["ConductorA_Horizontal"])
-			By = float(spacing["ConductorA_Vertical"])
-			Cx = float(spacing["ConductorA_Horizontal"])
-			Cy = float(spacing["ConductorA_Vertical"])
+			Bx = float(spacing["ConductorB_Horizontal"])
+			By = float(spacing["ConductorB_Vertical"])
+			Cx = float(spacing["ConductorC_Horizontal"])
+			Cy = float(spacing["ConductorC_Vertical"])
 			Nx = float(spacing["NeutralConductor_Horizontal"])
 			Ny = float(spacing["NeutralConductor_Vertical"])
 			ABx = Ax-Bx; ABy = Ay-By
@@ -728,6 +763,7 @@ class GLM:
 		section_id = table_get(cyme_table["sectiondevice"],load_id,"SectionId")
 		section = table_get(cyme_table["section"],section_id)
 		device_type = int(table_get(cyme_table["sectiondevice"],load_id,"DeviceType"))
+		connection_type = int(table_get(cyme_table["load"],load_id,"ConnectionConfiguration"))
 		if device_type == 20: # spot load is attached at from node of section
 			parent_name = self.name(section["FromNodeId"],"node")
 		elif device_type == 21: # distributed load is attached at to node of section
@@ -749,17 +785,25 @@ class GLM:
 			phases = phase
 		if device_type in glm_devices.keys():
 			ConsumerClassId = load["ConsumerClassId"]
-			load_value1 = float(load["LoadValue1"])
-			load_value2 = float(load["LoadValue2"])
-			load_types = {"Z":"constant_impedance","I":"constant_current","P":"constant_power"}
-			if ConsumerClassId in load_types.keys():
+			# the default load unit in gridlabd is Volt-Amperes, or Amperes or Ohms
+			load_value1 = float(load["LoadValue1"]) * 1000
+			load_value2 = float(load["LoadValue2"]) * 1000
+			# from the mdb file, type for constant power load is defined as PQ
+			load_types = {"Z":"constant_impedance","I":"constant_current","PQ":"constant_power"}
+			if ConsumerClassId in load_types.keys() and (load_value1*load_value1+load_value2*load_value2) > 0:
+				load_cals_complex = load_cals(ConsumerClassId,load["Phase"],connection_type,load_value1,load_value2)
+				load_value1 = load_cals_complex.real
+				load_value2 = -load_cals_complex.imag
 				return self.object("load",load_name,{
 					"parent" : parent_name,
 					"phases" : phases,
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
-			elif ConsumerClassId in ["PQ","PV","SWING","SWINGPQ"]: # GLM bus types allowed
+			elif ConsumerClassId in ["PV","SWING","SWINGPQ"] and (load_value1*load_value1+load_value2*load_value2) > 0: # GLM bus types allowed
+				load_cals_complex = load_cals("Z",load["Phase"],connection_type,load_value1,load_value2)
+				load_value1 = load_cals_complex.real
+				load_value2 = -load_cals_complex.imag
 				return self.object("load",load_name,{
 					"parent" : parent_name,
 					"phases" : phases,
@@ -889,7 +933,7 @@ class GLM:
 		self.assume(configuration_name,"connect_type",connect_type,f"regulator '{regulator_id}' does not specify connection type")
 		self.assume(configuration_name,"Control",Control,f"regulator '{regulator_id}' does not specify control type")
 		self.assume(configuration_name,"time_delay",time_delay,f"regulator '{regulator_id}' does not specify time delay")
-		self.assume(configuration_name,"band_center",band_center,f"regulator '{regulator_id}' does not specify time delay")
+		self.assume(configuration_name,"band_center",band_center,f"regulator '{regulator_id}' does not specify band center")
 
 		self.object("regulator_configuration", configuration_name, {
 			"connect_type" : connect_type,
@@ -898,7 +942,7 @@ class GLM:
 			"time_delay" : time_delay,
 			"raise_taps" : "%.0f" % float(NumberOfTaps/2),
 			"lower_taps" : "%.0f" % float(NumberOfTaps/2),
-			"regulation" : "%.1f%%" % (BandWidth / RatedKVLN * 100),
+			"regulation" : "%.1f%%" % (BandWidth / (RatedKVLN*1000) * 100),
 			"tap_pos_A" : "%.0f" % (TapPositionA),
 			"tap_pos_B" : "%.0f" % (TapPositionB),
 			"tap_pos_C" : "%.0f" % (TapPositionC),
@@ -998,7 +1042,9 @@ def cyme_extract_5020(network_id,network):
 
 	# cyme_table["node"]
 	for node_id in node_dict.keys():
-		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020)
+		# only network node and substantiation will be added
+		if table_get(cyme_table["node"],node_id,"ComponentMask") != "0":
+			node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020)
 
 	# overhead lines
 	for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
