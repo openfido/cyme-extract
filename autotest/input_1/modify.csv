@@ -1,7 +1,5 @@
 LD_LOAD611,phases,CN
 LD_LOAD634,phases,ABCN
-LD_LOAD634,nominal_voltage,240V
-ND_634,nominal_voltage,240V
 LD_LOAD645,phases,BCN
 LD_LOAD646,phases,BCD
 LD_LOAD652,phases,AN
