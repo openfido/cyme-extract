@@ -164,7 +164,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 		done
 	fi
 	(cd "$CSVDIR" ; zip -q "${OPENFIDO_OUTPUT}/${DATABASE%.*}.zip" *.csv )
-	rm -rf "$CSVDIR"
+	# rm -rf "$CSVDIR"
 done
 
 # output version info
