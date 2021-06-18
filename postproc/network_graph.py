@@ -83,10 +83,10 @@ if data_folder == None:
 
 # load the configuration
 config = pd.DataFrame({
-	"PNG_FIGSIZE" : ["9x6"],
-	"PNG_FONTSIZE" : ["8"],
-	"PNG_FIGNAME" : ["network_graph.png"],
-	"PNG_NODESIZE" : ["10"],
+	"PNG_FIGSIZE" : ["20x10"],
+	"PNG_FONTSIZE" : ["1"],
+	"PNG_FIGNAME" : ["network_graph_1.png"],
+	"PNG_NODESIZE" : ["0.1"],
 	"PNG_NODECOLOR" : ["byphase"],
 	"PNG_LAYOUT" : ["nodexy"],
 	"PNG_ROOTNODE" : [""],
@@ -181,13 +181,16 @@ elif hasattr(nx,settings["PNG_LAYOUT"]+"_layout"):
 	pos = call(graph,**layout_options)
 else:
 	raise Exception("LAYOUT={settings['LAYOUT']} is invalid")
-nx.draw(graph, pos,
-	with_labels = True,
-	edge_color = colors,
-	width = weights,
-	labels = labels,
-	node_size = int(settings["PNG_NODESIZE"]),
-	node_color = node_colors,
-	font_size = int(settings["PNG_FONTSIZE"]),
-	)
-plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
+try:
+	nx.draw(graph, pos,
+		with_labels = True,
+		edge_color = colors,
+		width = weights,
+		labels = labels,
+		node_size = int(settings["PNG_NODESIZE"]),
+		node_color = node_colors,
+		font_size = int(settings["PNG_FONTSIZE"]),
+		)
+	plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
+except nx.NetworkXError as e:
+	print("network error:", e)
