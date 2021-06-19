@@ -1,17 +1,12 @@
 #!/usr/bin/python3
 """OpenFIDO write_glm post-processor script
-
 Syntax:
 	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] [-h|--help] [-t|--cyme-tables]
-
 Concept of Operation
 --------------------
-
 Files are processed in the local folder, which must contain the required CSV files list in the `cyme_tables_required` 
 global variable. 
-
 Operation of this script is controlled by the file `{INPUTDIR}/config.csv`:
-
 	TABLES,glm
 	EXTRACT,non-empty
 	POSTPROC,write_glm.py
@@ -21,15 +16,12 @@ Operation of this script is controlled by the file `{INPUTDIR}/config.csv`:
 	GLM_MODIFY,modify.csv
 	GLM_DEFINE,SOLUTIONDUMP=yes
 	GLM_ASSUMPTIONS,include
-
 All output is written to the parent folder.  Currently the following files are generated, depending on the
 settings in control file:
-
   - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}.glm`
   - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}_assumptions.glm`
   - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}_assumptions.glm`
   - `{OUTPUTDIR}/{MDBNAME}_{NETWORKID}_assumptions.csv`
-
 """
 
 app_version = 0
@@ -56,15 +48,66 @@ from copy import copy
 
 #
 # Required tables to operate properly
-#
+# 
 cyme_tables_required = [
 	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
 	"CYMOVERHEADBYPHASE","CYMOVERHEADLINEUNBALANCED","CYMEQCONDUCTOR",
 	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
 	"CYMSWITCH","CYMCUSTOMERLOAD","CYMLOAD","CYMSHUNTCAPACITOR",
-	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR"
-	]
-
+	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR",
+	"CYMOVERHEADLINE","CYMUNDERGROUNDLINE",
+	"CYMANTIISLANDING","CYMARCFLASHNODE","CYMAUTOTAPCHANGINGEXTST","CYMBACKGROUNDMAP",
+	"CYMBREAKER","CYMBUSWAY","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
+	"CYMCTYPEFILTER","CYMDCLINK",
+	"CYMDEVICETAG","CYMDEVICEUDD","CYMDOUBLECIRCUIT","CYMDOUBLECIRCUITLINE",
+	"CYMDOUBLETUNEDFILTER","CYMELECCONVERTERGENERATOR","CYMEQAUTOTRANSFORMER",
+	"CYMEQAVERAGEGEOARRANGEMENT","CYMEQBREAKER","CYMEQBUSWAY","CYMEQCABLE",
+	"CYMEQDEFAULTEQUIPMENT","CYMEQDOUBLECIRCUITSPACING","CYMEQDOUBLETUNEDFILTER",
+	"CYMEQELECCONVERTERGENERATOR","CYMEQFREQUENCYSOURCE",
+	"CYMEQGENCOSTCURVEMODELPOINT","CYMEQGENERATIONCURVEMODEL","CYMEQGENERATORCOSTCURVEMODEL",
+	"CYMEQGROUNDINGTRANSFORMER","CYMEQHIGHPASSFILTER","CYMEQINDUCTIONGENERATOR",
+	"CYMEQINDUCTIONMACHINEEQCIRCUIT","CYMEQINDUCTIONMOTOR","CYMEQINSOLATIONMODEL",
+	"CYMEQINSOLATIONMODELPOINTS","CYMEQLOADCURVEMODEL","CYMEQLVCB","CYMEQMICROTURBINE",
+	"CYMEQMISCELLANEOUS","CYMEQMOTORCURVEMODEL","CYMEQMULTIWIRECONCNEUTCONFIG",
+	"CYMEQNETWORKPROTECTOR","CYMEQNONIDEALCONVERTER","CYMEQOVERHEADLINE",
+	"CYMEQOVERHEADSPACINGOFCOND","CYMEQPHASESHIFTERTRANSFORMER","CYMEQPHOTOVOLTAIC",
+	"CYMEQRECLOSER","CYMEQRELIABILITYEXTENSION","CYMEQSECTIONALIZER","CYMEQSERIESCAPACITOR",
+	"CYMEQSERIESREACTOR","CYMEQSHUNTCAPACITOR",
+	"CYMEQSINGLETUNEDFILTER","CYMEQSOFC","CYMEQSOURCE","CYMEQSOURCEBRANCH",
+	"CYMEQSOURCEHARMONICENVELOPPE","CYMEQSOURCEUTILEQUIVIMPEDANCE","CYMEQSVC",
+	"CYMEQSWITCH","CYMEQSYMBOL","CYMEQSYNCHMACHINEEQCIRCUIT","CYMEQSYNCHRONOUSGENERATOR",
+	"CYMEQSYNCHRONOUSMACHINEEXTHA","CYMEQSYNCHRONOUSMACHINEEXTST","CYMEQTAPESHIELDEDCONFIGURATION",
+	"CYMEQTHREEWINDAUTOTRANSFORMER","CYMEQTHREEWINDINGTRANSFORMER","CYMEQTWOVALUEPOINT","CYMEQUDD",
+	"CYMEQUDM","CYMEQUIVALENTLOAD","CYMEQUIVALENTSOURCE","CYMEQUNSHIELDEDCONFIGURATION",
+	"CYMEQWECS","CYMEQWINDMODEL","CYMEQWINDMODELPOINT","CYMFAILUREEVENT","CYMFREQUENCYDEPENDENTBRANCH",
+	"CYMFUSE","CYMGRAPHICALELEMENT","CYMGRAPHICALIMAGE","CYMGROWTHRATE","CYMHIGHPASSFILTER","CYMIDEALCONVERTER",
+	"CYMIDPATTERN","CYMINDUCTIONGENERATOR","CYMINDUCTIONMOTOR","CYMINDUCTMOTORSTARTASSISTMSA",
+	"CYMINSTCONTROLLEDDEVICE","CYMINSTCURRENTTRANSFORMER","CYMINSTFREQUENCYRELAY","CYMINSTINTERMEDIATEPOINT",
+	"CYMINSTPOTENTIALTRANSFORMER","CYMINSTRELAYTCC","CYMINSTRUMENTUDD","CYMINSTRUMENTUDM",
+	"CYMINSTUDMVARIABLE","CYMINSTVOLTAGERELAY","CYMINTERMEDIATEPOINT","CYMLDCSETTINGS","CYMLOADMODEL",
+	"CYMLOADTAPCHANGER","CYMLOADTAPCHANGER1PHEXTLTD","CYMLOADTAPCHANGEREXTLTD","CYMLVCB","CYMMETER",
+	"CYMMICROTURBINE","CYMMISCELLANEOUS","CYMMOTORLOADCHARACTERISTICS","CYMMUTUALLYCOUPLED3PHASEBRANCH",
+	"CYMNETWORKCONFIG","CYMNETWORKCONNECTION","CYMNETWORKDEPENDENCIES","CYMNETWORKENVIRONMENT","CYMNETWORKEQUIVALENT",
+	"CYMNETWORKLOCK","CYMNETWORKMETER","CYMNETWORKSYMBOL","CYMNETWORKTAG","CYMNETWORKUDD","CYMNETWORKUTILIZATIONFACTOR",
+	"CYMNODECONNECTOR","CYMNODEINTER","CYMNODETAG","CYMNONIDEALCONVERTER","CYMOPTIMALPOWERFLOWNODE",
+	"CYMPHASESHIFTERTRANSFORMER","CYMPITCHCONTROL","CYMPITCHCONTROLCURVEPOINT","CYMPRIORITY",
+	"CYMRAMDEVICECALIBRATION","CYMRAMFEEDERCALIBRATION","CYMRECLOSER","CYMREGULATORBYPHASE","CYMRLCBRANCH",
+	"CYMSCHEMAVERSION","CYMSECTIONALIZER","CYMSECTIONENVIRONMENT","CYMSECTIONNODE","CYMSECTIONPOINT",
+	"CYMSECTIONUDD","CYMSERIESCAPACITOR","CYMSERIESREACTOR","CYMSHUNTFREQUENCYSOURCE","CYMSHUNTREACTOR",
+	"CYMSINGLEFREQUENCYSOURCE","CYMSINGLETUNEDFILTER","CYMSOFC","CYMSOURCE","CYMSOURCETAG",
+	"CYMSTARTINGASSISTANCEMSA","CYMSTARTINGCURVEPOINT","CYMSTATCOM","CYMSTRUCTURE","CYMSTRUCTURECONNECTION",
+	"CYMSTRUCTURETAG","CYMSVC","CYMSWITCHABLESHUNTBANK","CYMSWITCHABLESHUNTBANKUNIT","CYMSYNCHRONOUSGENERATOR",
+	"CYMSYNCHRONOUSMOTOR","CYMSYNCHRONOUSMOTOREXTST","CYMTCCCOORDINATIONCURVE",
+	"CYMTCCFUSE","CYMTCCINSTANTANEOUS","CYMTCCLVCB","CYMTCCRECLOSER","CYMTCCRECLOSERCURVE","CYMTCCRELAY",
+	"CYMTHREEWINDINGTRANSFORMER","CYMTRANSFORMERBYPHASE","CYMUDM","CYMUDMVARIABLE",
+	"CYMUNCONNECTEDNODE","CYMUPFC","CYMUTILIZATIONFACTOR","CYMVARIABLEFREQUENCYDRIVE",
+	"CYMWECS","CYMZONEENVIRONMENT","CYMARCFURNACE","CYMBUSDISPLAY","CYMDBPARAMETERS","CYMEQARCFURNACE",
+	"CYMEQCTYPEFILTER","CYMEQFUSE","CYMEQIDEALCONVERTER","CYMEQLOADTAPCHANGER","CYMEQREACTPOWERCAPPOINT",
+	"CYMEQSHUNTREACTOR","CYMEQSOURCEUTILSCPOWER","CYMEQSYNCHRONOUSMOTOR","CYMEQUDMVARIABLE",
+	"CYMEQVARIABLEFREQUENCYDRIVE","CYMGROUNDINGTRANSFORMER","CYMINDUCTIONMOTOREXTST","CYMINSTRUMENT",
+	"CYMLIMITINGDEVICE","CYMLONGTERMDYNAMICSCURVEEXT","CYMNETWORKAREA","CYMNETWORKPROTECTOR","CYMNODEUDD",
+	"CYMPHOTOVOLTAIC","CYMSCHEMATABLE","CYMSERIESFREQUENCYSOURCE","CYMSOURCEHARMONICENVELOPPE","CYMTCCBASE",
+	"CYMTCCMOTOR","CYMTCCTRANSFORMER","CYMZONE"]
 
 #
 # Argument parsing
@@ -281,7 +324,7 @@ glm_devices = {
 	# 10 : "recloser",
 	# 12 : "sectionalizer",
 	13 : "switch",
-	# 14 : "fuse",
+	14 : "fuse",
 	17 : "capacitor",
 	20 : "load",
 	21 : "load",
@@ -332,6 +375,9 @@ def load_cals(load_type,load_phase,connection,load_power1,load_power2):
 		load_cals_results = load_power1-load_power2*(1j)
 		return load_cals_results
 
+def capacitor_phase_cals(KVARA,KVARB,KVARC):
+	return int(KVARA > 0) + 2*int(KVARB > 0) + 3*int(KVARC > 0) + int((KVARA*KVARB > 0) or (KVARA*KVARC > 0) or (KVARB*KVARC > 0))
+
 #
 # Load all the model tables (table names have an "s" appended)
 #
@@ -343,8 +389,8 @@ for filename in glob.iglob(f"{data_folder}/*.csv"):
 	cyme_table[name] = data.set_index(index)
 for filename in cyme_tables_required:
 	if filename[3:].lower() not in cyme_table.keys():
-		raise Exception(f"required CYME table '{filename}' is not found in {input_folder}")
-
+#		raise Exception(f"required CYME table '{filename}' is not found in {input_folder}")
+		print("Table needed but missing:", filename[3:].lower())
 #
 # GLM file builder
 #
@@ -824,34 +870,61 @@ class GLM:
 		link_name = self.name(capacitor_id,"link")
 		if link_name in self.objects.keys(): # link is no longer needed
 			self.delete(link_name)
-		
-		capacitor_name = self.name(capacitor_id,"capacitor")
-		phase = cyme_phase_name[int(capacitor["Phase"])]
 		KVARA = float(capacitor["KVARA"])
 		KVARB = float(capacitor["KVARB"])
 		KVARC = float(capacitor["KVARC"])
 		KVLN = float(capacitor["KVLN"])
-		switchA = "CLOSED"
-		self.assume(capacitor_name,"switchA",switchA,f"capacitor {capacitor_id} does not specify switch A position, valid options are 'CLOSED' or 'OPEN'")
-		switchB = "CLOSED"
-		self.assume(capacitor_name,"switchB",switchB,f"capacitor {capacitor_id} does not specify switch B position, valid options are 'CLOSED' or 'OPEN'")
-		switchC = "CLOSED"
-		self.assume(capacitor_name,"switchC",switchC,f"capacitor {capacitor_id} does not specify switch C position, valid options are 'CLOSED' or 'OPEN'")
-		control = "MANUAL"
-		self.assume(capacitor_name,"control",control,f"capacitor {capacitor_id} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
-		return self.object("capacitor",capacitor_name,{
-			"parent" : from_name,
-			"nominal_voltage" : f"{KVLN} kV",
-			"phases" : phase,
-			"phases_connected" : phase,
-			"capacitor_A" : f"{KVARA} kVA",
-			"capacitor_B" : f"{KVARB} kVA",
-			"capacitor_C" : f"{KVARC} kVA",
-			"switchA" : "CLOSED",
-			"switchB" : "CLOSED",
-			"switchC" : "CLOSED",
-			"control" : "MANUAL",
-			})
+		capacitor_name = self.name(capacitor_id,"capacitor")
+		
+		try:
+			phase = cyme_phase_name[int(capacitor["Phase"])]
+		except KeyError as err:
+			warning(f"capacitor {capacitor_id} does not specify {err}, phase will be specified based on capacitance data")
+			phase = cyme_phase_name[capacitor_phase_cals(KVARA,KVARB,KVARC)]
+
+		if phase != "ABCN":
+			switchA = "CLOSED"
+			self.assume(capacitor_name,"switchA",switchA,f"capacitor {capacitor_id} does not specify switch A position, valid options are 'CLOSED' or 'OPEN'")
+			switchB = "CLOSED"
+			self.assume(capacitor_name,"switchB",switchB,f"capacitor {capacitor_id} does not specify switch B position, valid options are 'CLOSED' or 'OPEN'")
+			switchC = "CLOSED"
+			self.assume(capacitor_name,"switchC",switchC,f"capacitor {capacitor_id} does not specify switch C position, valid options are 'CLOSED' or 'OPEN'")
+			control = "MANUAL"
+			self.assume(capacitor_name,"control",control,f"capacitor {capacitor_id} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
+			return self.object("capacitor",capacitor_name,{
+				"parent" : from_name,
+				"nominal_voltage" : f"{KVLN} kV",
+				"phases" : phase,
+				"phases_connected" : phase,
+				"capacitor_A" : f"{KVARA} kVA",
+				"capacitor_B" : f"{KVARB} kVA",
+				"capacitor_C" : f"{KVARC} kVA",
+				"switchA" : "CLOSED",
+				"switchB" : "CLOSED",
+				"switchC" : "CLOSED",
+				"control" : "MANUAL",
+				})
+		else:
+			warning(f"capacitor {capacitor_id} does not specify capacitance for all phases")
+			switchA = "OPEN"
+			self.assume(capacitor_name,"switchA",switchA,f"capacitor {capacitor_id} does not specify phase A capacitance, capacitor disconnected")
+			switchB = "OPEN"
+			self.assume(capacitor_name,"switchB",switchB,f"capacitor {capacitor_id} does not specify switch B capacitance, capacitor disconnected")
+			switchC = "OPEN"
+			self.assume(capacitor_name,"switchC",switchC,f"capacitor {capacitor_id} does not specify switch C capacitance, capacitor disconnected")
+			return self.object("capacitor",capacitor_name,{
+				"parent" : from_name,
+				"nominal_voltage" : f"{KVLN} kV",
+				"phases" : "ABC",
+				"phases_connected" : "ABC",
+				"capacitor_A" : f"{KVARA} kVA",
+				"capacitor_B" : f"{KVARB} kVA",
+				"capacitor_C" : f"{KVARC} kVA",
+				"switchA" : "OPEN",
+				"switchB" : "OPEN",
+				"switchC" : "OPEN",
+				"control" : "MANUAL",
+				})
 
 	# add a transformer
 	def add_transformer(self,transformer_id, transformer,version):
@@ -1027,9 +1100,15 @@ def cyme_extract_5020(network_id,network):
 	node_links = {}
 
 	# cyme_table["node"] graph data
-	for node_id, node in table_find(cyme_table["node"],NetworkId=network_id).iterrows():
-		node_links[node_id] = [] # incident links
-		node_dict[node_id] = [] # node dictionary
+	if "nodetag" in cyme_table.keys():
+		for node_id, node in table_find(cyme_table["nodetag"],NetworkId=network_id).iterrows():
+			node_dict[node_id] = [] # node dictionary
+		for node_id, node in table_find(cyme_table["node"],NetworkId=network_id).iterrows():
+			node_links[node_id] = [] # incident links
+	else:
+		for node_id, node in table_find(cyme_table["node"],NetworkId=network_id).iterrows():
+			node_links[node_id] = [] # incident links
+			node_dict[node_id] = [] # node dictionary
 
 	glm.blank()
 	glm.comment("","Objects","")
@@ -1042,17 +1121,18 @@ def cyme_extract_5020(network_id,network):
 
 	# cyme_table["node"]
 	for node_id in node_dict.keys():
-		# only network node and substantiation will be added
-		if table_get(cyme_table["node"],node_id,"ComponentMask") != "0":
-			node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020)
+		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020)
 
 	# overhead lines
-	for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
-		glm.add("overhead_line", cyme_id, cyme_data, version=5020)
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
+			glm.add("overhead_line", cyme_id, cyme_data, version=5020)
+	except:
+		pass
 
 	# unbalanced overhead lines
-	for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
-		glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
+	# for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
+	# 	glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
 
 	# cyme_table["load"]
 	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
@@ -1063,8 +1143,11 @@ def cyme_extract_5020(network_id,network):
 		glm.add("transformer", cyme_id, cyme_data, version=5020)
 
 	# cyme_table["regulator"]
-	for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
-		glm.add("regulator", cyme_id, cyme_data, version=5020)
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
+			glm.add("regulator", cyme_id, cyme_data, version=5020)
+	except:
+		pass
 
 	# cyme_table["capacitor"]
 	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
