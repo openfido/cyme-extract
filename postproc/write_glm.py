@@ -109,6 +109,7 @@ cyme_tables_required = [
 	# "CYMPHOTOVOLTAIC","CYMSCHEMATABLE","CYMSERIESFREQUENCYSOURCE","CYMSOURCEHARMONICENVELOPPE","CYMTCCBASE",
 	# "CYMTCCMOTOR","CYMTCCTRANSFORMER","CYMZONE"]
 
+
 #
 # Argument parsing
 #
@@ -1171,7 +1172,9 @@ def cyme_extract_5020(network_id,network):
 
 	# cyme_table["node"]
 	for node_id in node_dict.keys():
-		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020)
+		# only network node and substantiation will be added
+		if table_get(cyme_table["node"],node_id,"ComponentMask") != "0":
+			node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020)
 
 	# overhead lines
 	try:
