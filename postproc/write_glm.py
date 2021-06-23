@@ -55,7 +55,7 @@ cyme_tables_required = [
 	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
 	"CYMSWITCH","CYMCUSTOMERLOAD","CYMLOAD","CYMSHUNTCAPACITOR",
 	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR",
-	"CYMOVERHEADLINE","CYMUNDERGROUNDLINE",
+	"CYMOVERHEADLINE","CYMUNDERGROUNDLINE","CYMNODETAG",
 	"CYMANTIISLANDING","CYMARCFLASHNODE","CYMAUTOTAPCHANGINGEXTST","CYMBACKGROUNDMAP",
 	"CYMBREAKER","CYMBUSWAY","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
 	"CYMCTYPEFILTER","CYMDCLINK",
@@ -89,7 +89,7 @@ cyme_tables_required = [
 	"CYMMICROTURBINE","CYMMISCELLANEOUS","CYMMOTORLOADCHARACTERISTICS","CYMMUTUALLYCOUPLED3PHASEBRANCH",
 	"CYMNETWORKCONFIG","CYMNETWORKCONNECTION","CYMNETWORKDEPENDENCIES","CYMNETWORKENVIRONMENT","CYMNETWORKEQUIVALENT",
 	"CYMNETWORKLOCK","CYMNETWORKMETER","CYMNETWORKSYMBOL","CYMNETWORKTAG","CYMNETWORKUDD","CYMNETWORKUTILIZATIONFACTOR",
-	"CYMNODECONNECTOR","CYMNODEINTER","CYMNODETAG","CYMNONIDEALCONVERTER","CYMOPTIMALPOWERFLOWNODE",
+	"CYMNODECONNECTOR","CYMNODEINTER","CYMNONIDEALCONVERTER","CYMOPTIMALPOWERFLOWNODE",
 	"CYMPHASESHIFTERTRANSFORMER","CYMPITCHCONTROL","CYMPITCHCONTROLCURVEPOINT","CYMPRIORITY",
 	"CYMRAMDEVICECALIBRATION","CYMRAMFEEDERCALIBRATION","CYMRECLOSER","CYMREGULATORBYPHASE","CYMRLCBRANCH",
 	"CYMSCHEMAVERSION","CYMSECTIONALIZER","CYMSECTIONENVIRONMENT","CYMSECTIONNODE","CYMSECTIONPOINT",
@@ -377,6 +377,28 @@ def load_cals(load_type,load_phase,connection,load_power1,load_power2):
 
 def capacitor_phase_cals(KVARA,KVARB,KVARC):
 	return int(KVARA > 0) + 2*int(KVARB > 0) + 3*int(KVARC > 0) + int((KVARA*KVARB > 0) or (KVARA*KVARC > 0) or (KVARB*KVARC > 0))
+
+def arrangeString(string):
+	MAX_CHAR = 26
+	char_count = [0] * MAX_CHAR
+	s = 0
+
+	for i in range(len(string)):
+		if string[i] >= "A" and string[i] <= "Z":
+			char_count[ord(string[i]) - ord("A")] += 1
+		else:
+			s += ord(string[i]) - ord("0")
+	res = ""
+
+	for i in range(MAX_CHAR):
+		ch = chr(ord("A") + i)
+		while char_count[i]:
+			res += ch
+			char_count[i] -= 1
+	if s > 0:
+		res += str(s)
+
+	return res
 
 #
 # Load all the model tables (table names have an "s" appended)
@@ -805,17 +827,25 @@ class GLM:
 			})
 
 	# add a load
-	def add_load(self,load_id,load,version):
+	def add_load(self,load_id,load,version,**kwargs):
 		section_id = table_get(cyme_table["sectiondevice"],load_id,"SectionId")
 		section = table_get(cyme_table["section"],section_id)
 		device_type = int(table_get(cyme_table["sectiondevice"],load_id,"DeviceType"))
 		connection_type = int(table_get(cyme_table["load"],load_id,"ConnectionConfiguration"))
+
 		if device_type == 20: # spot load is attached at from node of section
 			parent_name = self.name(section["FromNodeId"],"node")
 		elif device_type == 21: # distributed load is attached at to node of section
 			parent_name = self.name(section["ToNodeId"],"node")
 		else:
 			raise Exception(f"CYME device type {device_type} is not supported as a load")
+
+		if parent_name not in self.objects.keys():
+			print(f"Definition for Node {parent_name} is missing")
+			node_links = kwargs["Node_Links"]
+			device_dict = kwargs["Device_Dicts"]
+			
+
 		customer_id = load["CustomerNumber"]
 
 		link_name = self.name(load_id,"link")
@@ -842,7 +872,7 @@ class GLM:
 				load_value2 = -load_cals_complex.imag
 				return self.object("load",load_name,{
 					"parent" : parent_name,
-					"phases" : phases,
+					"phases" : arrangeString(phases),
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					f"{load_types[ConsumerClassId]}_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
@@ -852,10 +882,20 @@ class GLM:
 				load_value2 = -load_cals_complex.imag
 				return self.object("load",load_name,{
 					"parent" : parent_name,
-					"phases" : phases,
+					"phases" : arrangeString(phases),
 					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					"bustype" : ConsumerClassId,
 					f"constant_impedance_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
+					})
+			elif ConsumerClassId in ["CGSUB","Other"] and (load_value1*load_value1+load_value2*load_value2) > 0: # GLM bus types allowed
+				load_cals_complex = load_cals("PQ",load["Phase"],connection_type,load_value1,load_value2)
+				load_value1 = load_cals_complex.real
+				load_value2 = -load_cals_complex.imag
+				return self.object("load",load_name,{
+					"parent" : parent_name,
+					"phases" : arrangeString(phases),
+					"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
+					f"constant_power_{phase}" : "%.4g%+.4gj" % (load_value1,load_value2),
 					})
 		else:
 			warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{cyme_devices[device_type]}' is not a supported CYME device type")
@@ -979,7 +1019,11 @@ class GLM:
 
 		CTPrimaryRating = float(regulator["CTPrimaryRating"])
 		PTRatio = float(regulator["PTRatio"])
-		BandWidth = float(regulator["BandWidth"])
+		try:
+			BandWidth = float(regulator["BandWidth"])
+		except KeyError as err:
+			warning(f"Regulator '{regulator_id}' doesn't define {err}")
+			BandWidth = 2.0
 		BoostPercent = float(regulator["BoostPercent"])
 		BuckPercent = float(regulator["BuckPercent"])
 		TapPositionA = float(regulator["TapPositionA"])
@@ -1136,7 +1180,7 @@ def cyme_extract_5020(network_id,network):
 
 	# cyme_table["load"]
 	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
-		glm.add("load", cyme_id, cyme_data, version=5020)
+		glm.add("load", cyme_id, cyme_data, version=5020, network_info = {"Node_Links": node_links, "Device_Dicts": device_dict})
 
 	# cyme_table["transformer"]
 	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
@@ -1152,6 +1196,7 @@ def cyme_extract_5020(network_id,network):
 	# cyme_table["capacitor"]
 	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
 		glm.add("capacitor", cyme_id, cyme_data, version=5020)
+
 	# switches
 	for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
 		glm.add("switch", cyme_id, cyme_data, version=5020)
@@ -1166,9 +1211,10 @@ def cyme_extract_5020(network_id,network):
 				if "class" in data.keys() and data["class"] == "link": # needs to be collapse
 					from_node = data["from"]
 					to_node = data["to"]
-					while "parent" in glm.objects[to_node].keys() and glm.objects[to_node]["parent"]["class"] == "node": # don't allow grandchild cyme_table["node"]
-						to_node = glm.objects[to_node]["parent"]
-					glm.objects[to_node]["parent"] = from_node
+					# while "parent" in glm.objects[to_node].keys() and glm.objects[glm.objects[to_node]["parent"]]["class"] == "node" \
+					#   and to_node != glm.objects[to_node]["parent"]: # don't allow grandchild cyme_table["node"]
+					# 	to_node = glm.objects[to_node]["parent"]
+					# glm.objects[to_node]["parent"] = from_node
 					glm.delete(name)
 					done = False
 					break
@@ -1194,6 +1240,7 @@ def cyme_extract_5020(network_id,network):
 		elif not "class" in data.keys():
 			warning("%s: object '%s' does not have a class" % (glm.filename,data["name"]))
 		elif data["class"] in ["link","powerflow_object","line"]:
+			print(glm.objects[name])
 			warning("%s: object '%s' uses abstract-only class '%s'" % (glm.filename,data["name"],data["class"]))
 
 	glm.close()
