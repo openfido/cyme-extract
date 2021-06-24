@@ -133,7 +133,7 @@ for index, edge in section.iterrows():
 	phase = edge["Phase"]
 	fnode = edge["FromNodeId"]
 	tnode = edge["ToNodeId"]
-	graph.add_edge(fnode,tnode,color=color[phase],weight=weight[phase],phase=phase)
+	graph.add_edge(str(fnode),str(tnode),color=color[phase],weight=weight[phase],phase=phase)
 if not settings["PNG_NODECOLOR"] or settings["PNG_NODECOLOR"] == "byphase":
 	node_colors = {}
 	for node in graph.nodes:
@@ -192,5 +192,5 @@ try:
 		font_size = int(settings["PNG_FONTSIZE"]),
 		)
 	plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
-except nx.NetworkXError as e:
-	print("Network error:", e)
+except nx.NetworkXError as err:
+	print(f"Cannot generate the network plot because {err}")
