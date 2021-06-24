@@ -193,4 +193,4 @@ try:
 		)
 	plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
 except nx.NetworkXError as e:
-	print("network error:", e)
+	print("Network error:", e)
