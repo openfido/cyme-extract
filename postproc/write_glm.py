@@ -637,7 +637,9 @@ class GLM:
 			with open(f"{input_folder}/{modify}","r") as fh:
 				reader = csv.reader(fh)
 				for row in reader:
-					if 0 < len(row) < 3:
+					if len(row) == 0:
+						warning(f"No modifications from {modify}")
+					elif 0 < len(row) < 3:
 						warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
 					elif len(row) > 3:
 						warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
