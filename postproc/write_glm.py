@@ -767,6 +767,8 @@ class GLM:
 		spacing_name = self.name(spacing_id,"line_spacing")
 		if not spacing_name in self.objects.keys():
 			spacing = cyme_table["eqgeometricalarrangement"].loc[spacing_id]
+			if isinstance(spacing, pd.DataFrame):
+				spacing = spacing.iloc[0]
 			Ax = float(spacing["ConductorA_Horizontal"])
 			Ay = float(spacing["ConductorA_Vertical"])
 			Bx = float(spacing["ConductorB_Horizontal"])
@@ -1184,8 +1186,11 @@ def cyme_extract_5020(network_id,network):
 		pass
 
 	# unbalanced overhead lines
-	# for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
-	# 	glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
+			glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
+	except:
+		warning(f"Not CYME table 'overheadlineunbalanced' ")
 
 	# cyme_table["load"]
 	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
