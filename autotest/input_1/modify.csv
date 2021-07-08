@@ -7,6 +7,6 @@ LD_LOAD671,phases,ABCD
 LD_LOAD675,phases,ABC
 LD_LOAD692,phases,ABCD
 LK_650REG,sense_node,ND_671
-RC_2V_30s,Control,MANUAL
+RC_650REG_2V_30s,Control,MANUAL
 ND_634,nominal_voltage,277V
 LD_LOAD634,nominal_voltage,277V
