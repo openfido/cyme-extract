@@ -55,10 +55,10 @@ cyme_tables_required = [
 	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
 	"CYMSWITCH","CYMCUSTOMERLOAD","CYMLOAD","CYMSHUNTCAPACITOR",
 	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR",
-	"CYMOVERHEADLINE","CYMUNDERGROUNDLINE","CYMNODETAG"]
-	# "CYMANTIISLANDING","CYMARCFLASHNODE","CYMAUTOTAPCHANGINGEXTST","CYMBACKGROUNDMAP",
-	# "CYMBREAKER","CYMBUSWAY","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
-	# "CYMCTYPEFILTER","CYMDCLINK",
+	"CYMOVERHEADLINE","CYMUNDERGROUNDLINE","CYMNODETAG",
+	"CYMANTIISLANDING","CYMARCFLASHNODE","CYMAUTOTAPCHANGINGEXTST","CYMBACKGROUNDMAP",
+	"CYMBREAKER","CYMBUSWAY","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
+	"CYMCTYPEFILTER","CYMDCLINK"]
 	# "CYMDEVICETAG","CYMDEVICEUDD","CYMDOUBLECIRCUIT","CYMDOUBLECIRCUITLINE",
 	# "CYMDOUBLETUNEDFILTER","CYMELECCONVERTERGENERATOR","CYMEQAUTOTRANSFORMER",
 	# "CYMEQAVERAGEGEOARRANGEMENT","CYMEQBREAKER","CYMEQBUSWAY","CYMEQCABLE",
@@ -321,7 +321,7 @@ glm_devices = {
 	3 : "overhead_line",
 	4 : "regulator",
 	5 : "transformer",
-	# 8 : "breaker",
+	8 : "breaker",
 	# 10 : "recloser",
 	# 12 : "sectionalizer",
 	13 : "switch",
@@ -439,7 +439,7 @@ class GLM:
 		"meter" : "ME_",
 		"motor" : "MO_",
 		"node" : "ND_",
-		"overhead_line" : "OL",
+		"overhead_line" : "OL_",
 		"overhead_line_conductor" : "OC_",
 		"pole" : "PO_",
 		"pole_configuration" : "PC_",
@@ -554,25 +554,89 @@ class GLM:
 		call()
 		glm.write("#endif")
 
+	# def object(self, oclass, name, parameters,overwrite=True):
+	# 	if name not in self.objects.keys():
+	# 		obj = {"name" : name}
+	# 		self.objects[name] = obj
+	# 		print(11111)
+	# 		print("obj: ", obj)
+	# 		print("name: ", name)
+	# 	else:
+	# 		obj = self.objects[name]
+	# 		print(22222)
+	# 		print("name: ", name)
+	# 		print("obj: ", obj)
+	# 		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["switch","overhead_line","transformer"]:
+	# 			# if obj is created based on a link object
+	# 			print(33333)
+	# 			new_name = self.name(name, oclass) # new name
+	# 			new_obj = {"name" : new_name}
+	# 			self.objects[new_name] = new_obj
+	# 		print(22222)
+	# 		print("obj: ", obj)
+	# 	if name == "LK_61-610":
+	# 		print(333333)
+	# 		print("obj LK_61-610: ", obj)
+	# 		print("obj key: ", obj.keys())
+	# 		print("calss: ", oclass)
+	# 		print("parameters: ", parameters)
+	# 	for key, value in parameters.items():
+	# 		if not overwrite and key in obj.keys() and obj[key] != value:
+	# 			print(444444)
+	# 			raise Exception(f"object property '{key}={obj[key]}' merge conflicts with '{key}={value}'")
+	# 		if value == None and key in obj.keys():
+	# 			del obj[key]
+	# 		else:
+	# 			obj[key] = value
+	# 	obj["class"] = oclass
+	# 	if name in self.refcount.keys():
+	# 		self.refcount[name] += 1
+	# 	else:
+	# 		self.refcount[name] = 1
+	# 	return obj
+
 	def object(self, oclass, name, parameters,overwrite=True):
 		if name not in self.objects.keys():
 			obj = {"name" : name}
 			self.objects[name] = obj
 		else:
 			obj = self.objects[name]
-		for key, value in parameters.items():
-			if not overwrite and key in obj.keys() and obj[key] != value:
-				raise Exception(f"object property '{key}={obj[key]}' merge conflicts with '{key}={value}'")
-			if value == None and key in obj.keys():
-				del obj[key]
+		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["switch","overhead_line","transformer"]:
+			# if obj is created based on a link object
+			new_name = self.name(name, oclass) # new name
+			new_obj = {"name" : new_name}
+			self.objects[new_name] = new_obj
+			for key, value in obj.items():
+				if key != "name":
+					new_obj[key] = value
+			for key, value in parameters.items():
+				if not overwrite and key in new_obj.keys() and new_obj[key] != value:
+					raise Exception(f"object property '{key}={new_obj[key]}' merge conflicts with '{key}={value}'")
+				if value == None and key in new_obj.keys():
+					del new_obj[key]
+				else:
+					new_obj[key] = value
+			new_obj["class"] = oclass
+			if new_name in self.refcount.keys():
+				self.refcount[name] += 1
 			else:
-				obj[key] = value
-		obj["class"] = oclass
-		if name in self.refcount.keys():
-			self.refcount[name] += 1
+				self.refcount[name] = 1
+			return new_obj
 		else:
-			self.refcount[name] = 1
-		return obj
+			for key, value in parameters.items():
+				if not overwrite and key in obj.keys() and obj[key] != value:
+					raise Exception(f"object property '{key}={obj[key]}' merge conflicts with '{key}={value}'")
+				if value == None and key in obj.keys():
+					del obj[key]
+				else:
+					obj[key] = value
+			obj["class"] = oclass
+			if name in self.refcount.keys():
+				self.refcount[name] += 1
+			else:
+				self.refcount[name] = 1
+			return obj
+
 
 	def delete(self,name):
 		if self.refcount[name] == 1:
@@ -697,6 +761,8 @@ class GLM:
 	def add_overhead_line(self,line_id,line,version):
 		line_name = self.name(line_id,"link")
 		length = float(line["Length"])
+		if length == 0.0:
+			length = 0.01
 		conductorA_id = line["PhaseConductorIdA"]
 		conductorB_id = line["PhaseConductorIdB"]
 		conductorC_id = line["PhaseConductorIdC"]
@@ -716,6 +782,8 @@ class GLM:
 		configuration_id = line["LineId"]
 		configuration_name = self.name(configuration_id,"line_configuration")
 		length = float(line["Length"])
+		if length == 0.0:
+			length = 0.01
 		if not configuration_name in self.objects.keys():
 			configuration = cyme_table["eqoverheadlineunbalanced"].loc[configuration_id]
 			conductorA_id = configuration["PhaseConductorIdA"]
@@ -829,7 +897,18 @@ class GLM:
 			"phase_B_state" : self.get_switch_phase_status(phases,"B"),
 			"phase_C_state" : self.get_switch_phase_status(phases,"C"),
 			"operating_mode" : "BANKED"
-			})
+			},overwrite=False)
+
+	# add a breaker based on a link
+	def add_breaker(self,breaker_id,breaker,version):
+		breaker_name = self.name(breaker_id,"link")
+		phases = cyme_phase_name[int(breaker["ClosedPhase"])]
+		return self.object("switch", breaker_name, {
+			"phase_A_state" : self.get_switch_phase_status(phases,"A"),
+			"phase_B_state" : self.get_switch_phase_status(phases,"B"),
+			"phase_C_state" : self.get_switch_phase_status(phases,"C"),
+			"operating_mode" : "BANKED"
+			},overwrite=False)
 
 	# add a load
 	def add_load(self,load_id,load,version,**kwargs):
@@ -912,11 +991,11 @@ class GLM:
 		from_name = self.name(section["FromNodeId"],"node")
 		to_name = self.name(section["ToNodeId"],"node")
 
-		if from_name not in self.objects.keys():
-			# Definition for node "from_name" is missing
-			device_dict = kwargs["node_info"]["Device_Dicts"]
-			node_links = kwargs["node_info"]["Node_Links"]
-			self.add_node(from_name[3:],node_links,device_dict,version)
+		# if from_name not in self.objects.keys():
+		# 	# Definition for node "from_name" is missing
+		# 	device_dict = kwargs["node_info"]["Device_Dicts"]
+		# 	node_links = kwargs["node_info"]["Node_Links"]
+		# 	self.add_node(from_name[3:],node_links,device_dict,version)
 
 		link_name = self.name(capacitor_id,"link")
 		if link_name in self.objects.keys(): # link is no longer needed
@@ -944,7 +1023,7 @@ class GLM:
 			self.assume(capacitor_name,"control",control,f"capacitor {capacitor_id} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
 			return self.object("capacitor",capacitor_name,{
 				"parent" : from_name,
-				"nominal_voltage" : f"{KVLN} kV",
+				"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 				"phases" : phase,
 				"phases_connected" : phase,
 				"capacitor_A" : f"{KVARA} kVA",
@@ -965,7 +1044,7 @@ class GLM:
 			self.assume(capacitor_name,"switchC",switchC,f"capacitor {capacitor_id} does not specify switch C capacitance, capacitor disconnected")
 			return self.object("capacitor",capacitor_name,{
 				"parent" : from_name,
-				"nominal_voltage" : f"{KVLN} kV",
+				"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 				"phases" : "ABC",
 				"phases_connected" : "ABC",
 				"capacitor_A" : f"{KVARA} kVA",
@@ -1016,6 +1095,7 @@ class GLM:
 			"resistance" : r,
 			"reactance" : x,
 			})
+		# add a transformer based on a link
 		link_name = self.name(transformer_id,"link")
 		return self.object("transformer", link_name, {
 			"nominal_voltage" : None,
@@ -1057,7 +1137,7 @@ class GLM:
 		time_delay = "30s"
 		band_center = "${GLM_NOMINAL_VOLTAGE}"
 		band_width = "%.1gV" % (BandWidth)
-		configuration_name = self.name([band_width,time_delay],"regulator_configuration")
+		configuration_name = self.name([regulator_id,band_width,time_delay],"regulator_configuration")
 		self.assume(configuration_name,"connect_type",connect_type,f"regulator '{regulator_id}' does not specify connection type")
 		self.assume(configuration_name,"Control",Control,f"regulator '{regulator_id}' does not specify control type")
 		self.assume(configuration_name,"time_delay",time_delay,f"regulator '{regulator_id}' does not specify time delay")
@@ -1216,6 +1296,23 @@ def cyme_extract_5020(network_id,network):
 	# switches
 	for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
 		glm.add("switch", cyme_id, cyme_data, version=5020)
+
+	# breaker
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["breaker"],NetworkId=network_id).iterrows():
+			glm.add("breaker", cyme_id, cyme_data, version=5020)
+	except:
+		pass
+
+	# check nade objects
+	for name in list(glm.objects.keys()):
+		data = glm.objects[name]
+		if 'from' in data.keys() and data["from"] not in glm.objects.keys():
+			node_dict[data["from"]] = glm.add_node(data["from"][3:], node_links, device_dict, version=5020)
+		elif 'to' in data.keys() and data["to"] not in glm.objects.keys():
+			node_dict[data["to"]] = glm.add_node(data["to"][3:], node_links, device_dict, version=5020)
+		elif 'parent' in data.keys() and data["parent"] not in glm.objects.keys():
+			node_dict[data["parent"]] = glm.add_node(data["parent"][3:], node_links, device_dict, version=5020)
 
 	# collapse links
 	done = False
