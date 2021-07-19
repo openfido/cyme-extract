@@ -496,7 +496,7 @@ class GLM:
 			name = prefix + name
 		elif "0" <= name[0] <= "9": # fix names that start with digits
 			name = "_" + name
-		return name.replace(" ","_") # remove white spaces from names
+		return name.replace(" ","_").replace("-","_") # remove white spaces from names
 
 	def write(self,line):
 		print(line,file=self.fh)
