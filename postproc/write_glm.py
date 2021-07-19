@@ -601,7 +601,7 @@ class GLM:
 			self.objects[name] = obj
 		else:
 			obj = self.objects[name]
-		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["switch","overhead_line","transformer"]:
+		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["switch","overhead_line","transformer","regulator"]:
 			# if obj is created based on a link object
 			new_name = self.name(name, oclass) # new name
 			new_obj = {"name" : new_name}
@@ -618,9 +618,9 @@ class GLM:
 					new_obj[key] = value
 			new_obj["class"] = oclass
 			if new_name in self.refcount.keys():
-				self.refcount[name] += 1
+				self.refcount[new_name] += 1
 			else:
-				self.refcount[name] = 1
+				self.refcount[new_name] = 1
 			return new_obj
 		else:
 			for key, value in parameters.items():
@@ -1158,9 +1158,9 @@ class GLM:
 			})
 
 		link_name = self.name(regulator_id,"link")
-		regulator_name = self.name(regulator_id,"regulator")
+		regulator_name = self.name(link_name,"regulator")
 		sense_node = self.objects[link_name]["to"]
-		self.assume(link_name,"sense_node",sense_node,f"regulator '{regulator_id}' does not specify sense node")
+		self.assume(regulator_name,"sense_node",sense_node,f"regulator '{regulator_id}' does not specify sense node")
 		return self.object("regulator", self.name(regulator_id,"link"), {
 			"configuration" : configuration_name,
 			"sense_node" : sense_node,
@@ -1343,6 +1343,52 @@ def cyme_extract_5020(network_id,network):
 				warning(format_exception("link removal failed",name,glm.objects[name]))
 				glm.delete(name)
 				pass
+
+	# remove extra connections between two node
+	multi_g = nx.MultiGraph()
+	for name in list(glm.objects.keys()):
+		try:
+			data = glm.objects[name]
+			if "from" in data.keys() and "to" in data.keys():
+				if data["from"] not in multi_g:
+					multi_g.add_node(data["from"])
+				if data["to"] not in multi_g:
+					multi_g.add_node(data["to"])
+				multi_g.add_edge(data["from"],data["to"],edge_name=name)
+		except Exception as exc:
+			warning(format_exception("connection removal failed",name,glm.objects[name]))
+			glm.delete(name)
+			pass
+	for u in multi_g.nodes():
+		for neighbor in multi_g.neighbors(u):
+			if multi_g.number_of_edges(u,neighbor)>1:
+				edge_data = {}
+				for edge_id in multi_g[u][neighbor].keys():
+					edge_data[multi_g[u][neighbor][edge_id]["edge_name"][0:2]] = edge_id
+				# RG > TF > SW > OL
+				if "RG" in edge_data.keys():
+					# one of the multi-edges is regulator
+					for key in edge_data.keys():
+						if key != "RG":
+							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+							if object_name in glm.objects.keys():
+								glm.delete(object_name)
+				elif "TF" in edge_data.keys():
+					# one of the multi-edges is transformer
+					for key in edge_data.keys():
+						if key != "TF":
+							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+							if object_name in glm.objects.keys():
+								glm.delete(object_name)
+				elif "SW" in edge_data.keys():
+					# one of the multi-edges is switch
+					for key in edge_data.keys():
+						if key != "SW":
+							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+							if object_name in glm.objects.keys():
+								glm.delete(object_name)
+				else:
+					raise Exception(f"CYME model has unsupported duplicate connections between {u} and {neighbor}")
 
 	#
 	# Check conversion
