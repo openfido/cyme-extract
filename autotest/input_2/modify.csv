@@ -14,4 +14,7 @@ SW_LK_300-350,phase_C_state,OPEN
 SW_LK_54-94,phase_A_state,OPEN
 SW_LK_54-94,phase_B_state,OPEN
 SW_LK_54-94,phase_C_state,OPEN
-modify RC_RG4_2V_30s.Control "MANUAL";
+RC_RG1_2V_30s,Control,MANUAL
+RC_RG2_2V_30s,Control,MANUAL
+RC_RG3_2V_30s,Control,MANUAL
+RC_RG4_2V_30s,Control,MANUAL
