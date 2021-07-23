@@ -8,65 +8,28 @@ Extract a CYME MDB file to its constituent tables in CSV format.
 
 The input folder must contain one or more MDB files, with the extension `.mdb`.
 
-The configuration file `config.csv` may contain any of the following:
+File `config.csv`:
 
-### `FILES`
+| Parameter name | Default value | Remarks |
+| :---: | :---: | :---: |
+| `FILES` | `*.mdb` | Supports patterns. Single filename example: `my-network.mdb` |
+| `TABLES` | `*` | Supports patterns. Most CYME tables match `CYM*` |
+| `EXTRACT` | `non-empty` | Allowed values are `all` or `non-empty` |
+| `TIMEZONE` | `US/CA` | General format is `<country>/city` |
+| `POSTPROC` | `network_graph` | Allowed post-processors are list in `postproc` folder. Current valid values are `network_graph`, `voltage_profile`, and `write_glm` |
+| `OUTPUT` | `zip csv json` | File extensions to copy to the output folder. |
 
-To specify which MDB files are to be extracted, add the following line to `config.csv`:
+## Examples
 
-~~~
-FILES,<grep-pattern>
-~~~
+Example 1 is based on the [autotest/input_1](https://github.com/openfido/cyme-extract/tree/main/autotest/input_1).
 
-The default is to extract all MDB files found in the input folder.
+[config.csv](file:autotest/input_1/config.csv)
 
-### `TABLES`
+[config.glm](file:autotest/input_1/config.glm)
 
-To specify which tables are to be extracted, add the following line to `config.csv`:
+[modify.csv](file:autotest/input_1/modify.csv)
 
-~~~
-TABLES,<table-list>
-~~~
-
-The default is to extract all tables in the MDB file.
-
-### `EXTRACT`
-
-To specify whether empty tables are to be extracted, add the following line to `config.csv`:
-
-~~~
-EXTRACT,[all|non-empty]
-~~~
-
-The default is to extract all tables in the MDB file.
-
-### `TIMEZONE`
-
-To specify which timezone to work in, add the following line to `config.csv`:
-
-~~~
-TIMEZONE,<country>/<city>
-~~~
-
-The default timezone is UTC. If an invalid timezone is used, a complete list of available timezones will be put in the output folder in the file names `timezones.csv`.
-
-### `POSTPROC`
-
-To specify one or more post-processing steps, list the name of the process scripts in the `postproc` folder, add the following line to `config.csv`:
-
-~~~
-POSTPROC,<script1> <script2> ...
-~~~
-
-### `OUTPUTS`
-
-To specify the output file types to copy from the working folder, add the following line to `config.csv`:
-
-~~~
-OUTPUT,<ext1> <ext2> ...
-~~~
-
-The default output file extensions are `zip csv json`.
+[settings.csv](file:autotest/input_1/settings.csv)
 
 ## Output
 
