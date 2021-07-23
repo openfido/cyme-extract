@@ -11,7 +11,7 @@ The input folder must contain one or more MDB files, with the extension `.mdb`.
 File `config.csv`:
 
 | Parameter name | Default value | Remarks |
-| :---: | :---: | :---: |
+| :--- | :--- | :--- |
 | `FILES` | `*.mdb` | Supports patterns. Single filename example: `my-network.mdb` |
 | `TABLES` | `*` | Supports patterns. Most CYME tables match `CYM*` |
 | `EXTRACT` | `non-empty` | Allowed values are `all` or `non-empty` |
