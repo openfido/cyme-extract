@@ -109,6 +109,7 @@ def main(inputs,outputs,options={}):
 	os.system(f"mkdir -p {OUTPUTDIR}")
 
 	os.system(f"python3 {cache}/cyme-extract/postproc/write_glm.py -i {SRCDIR} -o {OUTPUTDIR} -c config.csv -d {CSVDIR}")
+
 	print(f"Moving config fiels to {OUTPUTDIR}")
 	file_names = os.listdir(SRCDIR)
 	for file_name in file_names:
