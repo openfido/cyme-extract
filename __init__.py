@@ -32,7 +32,7 @@
 #
 #
 
-import os
+import os, shutil
 import pandas as pd
 cache = "/usr/local/share/openfido" # additional path for downloaded modules
 apiurl = "https://api.github.com"
@@ -42,7 +42,7 @@ traceback_file = "/dev/stderr"
 
 SRCDIR = os.getcwd()
 OUTPUTDIR = f"{SRCDIR}/output"
-DEFAULT_OUTPUT="zip csv png glm json"
+DEFAULT_OUTPUT=["zip", "csv", "png", "glm", "json"]
 
 def main(inputs,outputs,options={}):
 	
@@ -109,7 +109,12 @@ def main(inputs,outputs,options={}):
 	os.system(f"mkdir -p {OUTPUTDIR}")
 
 	os.system(f"python3 {cache}/cyme-extract/postproc/write_glm.py -i {SRCDIR} -o {OUTPUTDIR} -c config.csv -d {CSVDIR}")
-
+	print(f"Moving config fiels to {OUTPUTDIR}")
+	file_names = os.listdir(SRCDIR)
+	for file_name in file_names:
+		for EXT in DEFAULT_OUTPUT:
+			if file_name.endswith(f".{EXT}"):
+				shutil.copy2(os.path.join(SRCDIR, file_name), OUTPUTDIR)
 
 
 
