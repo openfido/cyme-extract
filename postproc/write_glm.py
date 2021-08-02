@@ -242,10 +242,13 @@ config = pd.DataFrame({
 	"GLM_ASSUMPTIONS" : ["include"]
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
-settings = pd.read_csv(config_file, dtype=str,
-	names=["name","value"],
-	comment = "#",
-	).set_index("name")
+try:
+	settings = pd.read_csv(config_file, dtype=str,
+		names=["name","value"],
+		comment = "#",
+		).set_index("name")
+except:
+	raise Exception(f"Cannot read {config_file}")
 for name, values in settings.iterrows():
 	if name in config.index:
 		config["value"][name] = values[0]
@@ -553,47 +556,6 @@ class GLM:
 		glm.write(f"#ifexist {name}")
 		call()
 		glm.write("#endif")
-
-	# def object(self, oclass, name, parameters,overwrite=True):
-	# 	if name not in self.objects.keys():
-	# 		obj = {"name" : name}
-	# 		self.objects[name] = obj
-	# 		print(11111)
-	# 		print("obj: ", obj)
-	# 		print("name: ", name)
-	# 	else:
-	# 		obj = self.objects[name]
-	# 		print(22222)
-	# 		print("name: ", name)
-	# 		print("obj: ", obj)
-	# 		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["switch","overhead_line","transformer"]:
-	# 			# if obj is created based on a link object
-	# 			print(33333)
-	# 			new_name = self.name(name, oclass) # new name
-	# 			new_obj = {"name" : new_name}
-	# 			self.objects[new_name] = new_obj
-	# 		print(22222)
-	# 		print("obj: ", obj)
-	# 	if name == "LK_61-610":
-	# 		print(333333)
-	# 		print("obj LK_61-610: ", obj)
-	# 		print("obj key: ", obj.keys())
-	# 		print("calss: ", oclass)
-	# 		print("parameters: ", parameters)
-	# 	for key, value in parameters.items():
-	# 		if not overwrite and key in obj.keys() and obj[key] != value:
-	# 			print(444444)
-	# 			raise Exception(f"object property '{key}={obj[key]}' merge conflicts with '{key}={value}'")
-	# 		if value == None and key in obj.keys():
-	# 			del obj[key]
-	# 		else:
-	# 			obj[key] = value
-	# 	obj["class"] = oclass
-	# 	if name in self.refcount.keys():
-	# 		self.refcount[name] += 1
-	# 	else:
-	# 		self.refcount[name] = 1
-	# 	return obj
 
 	def object(self, oclass, name, parameters,overwrite=True):
 		if name not in self.objects.keys():
