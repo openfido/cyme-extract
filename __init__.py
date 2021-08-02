@@ -1,10 +1,9 @@
 #
-# IMPORTANT NOTE: this script will automatically install needed tools only on system that use 'apt'
-#
 # Environment:
 #
-#   OPENFIDO_INPUT --> input folder when MDB files are placed
-#   OPENFIDO_OUTPUT --> output folder when CSV files are placed
+#   input_folder --> input folder where MDB files are placed
+#   output_folder --> output folder where GLM files are placed
+#   CSVDIR --> tmp folder where CSV files are placed
 #
 # Special files:
 #
@@ -15,21 +14,7 @@
 #     EXTRACT,[all|non-empty] --> extracts all or only non-empty tables (default all)
 #     TIMEZONE,<country>/<city> --> changes localtime to use specified timezone (default UTC)
 #     POSTPROC,<file1> <file2> ... --> run postprocessing routines (default none)
-#     OUTPUTS,<ext1> <ext2> ... --> extensions to save (default "zip csv json")
-#
-
-# current version of pipeline (increment this when a major change in functionality is deployed)
-#
-# This pipeline creates a CSV file name containing the file status of the input files.
-#
-# INPUTS
-#
-#   The list of files to be examined.
-#
-# OUTPUTS
-#
-#   The CSV file containing the file status information
-#
+#     OUTPUTS,<ext1> <ext2> ... --> extensions to save (default "zip", "csv", "png", "glm", "json")
 #
 
 import os, shutil
