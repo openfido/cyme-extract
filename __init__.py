@@ -34,6 +34,7 @@
 
 import os, shutil
 import pandas as pd
+
 cache = "/usr/local/share/openfido" # additional path for downloaded modules
 apiurl = "https://api.github.com"
 rawurl = "https://raw.githubusercontent.com"
@@ -46,8 +47,6 @@ DEFAULT_OUTPUT=["zip", "csv", "png", "glm", "json"]
 
 def main(inputs,outputs,options={}):
 	
-	print("SRCDIR: ", SRCDIR)
-	
 	INPUTNAME = inputs[0]
 	OUTPUTNAME = outputs[0]
 
@@ -56,12 +55,12 @@ def main(inputs,outputs,options={}):
 	if os.path.exists(CSVDIR):
 		os.system(f"rm -rf {CSVDIR}")
 	os.system(f"mkdir -p {CSVDIR}")
-	print("CSVDIR: ", CSVDIR)
 
 	#
 	# Load user configuration
 	#
 	if os.path.exists("config.csv"):
+		print(f"Use settings from 'config.csv':")
 		config = pd.read_csv("config.csv", dtype=str,
 			names=["name","value"],
 			comment = "#",
@@ -71,30 +70,49 @@ def main(inputs,outputs,options={}):
 		TABLES = settings["TABLES"]
 		EXTRACT = settings["EXTRACT"]
 		TIMEZONE = "UTC"
-		POSTPROC = settings["POSTPROC"].tolist()
+		POSTPROCS = settings["POSTPROC"].tolist()
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
-		print(POSTPROC)
-		print(f"OpenFIDO config settings")
-		print(f"FILES = *.{INPUTTYPE}")
-		print(f"TABLES = {TABLES}")
-		print(f"EXTRACT = {EXTRACT}")
-		print(f"POSTPROC = {POSTPROC}")
-		print(f"OUTPUTS = {OUTPUTTYPE}")
+		print(POSTPROCS)
 	else:
 		print(f"No 'config.csv', using default settings:")
 		INPUTTYPE = INPUTNAME.split(".")[1]
 		TABLES = "glm"
 		EXTRACT = "all"
 		TIMEZONE = "UTC"
-		POSTPROC = ""
+		POSTPROCS = []
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
-		print(POSTPROC)
-		print(f"OpenFIDO config settings")
-		print(f"FILES = *.{INPUTTYPE}")
-		print(f"TABLES = {TABLES}")
-		print(f"EXTRACT = {EXTRACT}")
-		print(f"POSTPROC = {POSTPROC}")
-		print(f"OUTPUTS = {OUTPUTTYPE}")
+		print(POSTPROCS)
+	
+	PROCCONFIG = {
+		"input_folder": SRCDIR,
+		"output_folder": OUTPUTDIR,
+		"postproc": POSTPROCS,
+		"extract": EXTRACT,
+		"outputs": OUTPUTTYPE,
+		"inputs": INPUTTYPE,
+		"tables": TABLES,
+	}
+
+	for option in options:
+		if "=" in option:
+			opt_defined = option.split("=")
+			if opt_defined[0] in PROCCONFIG.keys():
+				if opt_defined[0] == "postproc":
+					PROCCONFIG[opt_defined[0]] = [opt_defined[1]]
+				else:
+					try:
+						PROCCONFIG[opt_defined[0]] = opt_defined[1]
+					except:
+						raise Exception(f"option {option} unexpected")
+
+	print("PROCCONFIG new: ", PROCCONFIG)
+
+	print(f"OpenFIDO config settings")
+	print(f"FILES = *.{PROCCONFIG['inputs']}")
+	print(f"TABLES = {PROCCONFIG['tables']}")
+	print(f"EXTRACT = {PROCCONFIG['extract']}")
+	print(f"POSTPROC = {PROCCONFIG['postproc']}")
+	print(f"OUTPUTS = {PROCCONFIG['outputs']}")
 
 
 	result = os.popen(f"python3 {cache}/cyme-extract/postproc/write_glm.py --cyme-tables").read()
@@ -102,49 +120,24 @@ def main(inputs,outputs,options={}):
 
 	for table in tables:
 		csvname = table[3:].lower()
-		os.system(f"mdb-export {INPUTNAME} {table} > {CSVDIR}/{csvname}.csv")
+		os.system(f"mdb-export {PROCCONFIG['input_folder']}/{INPUTNAME} {table} > {CSVDIR}/{csvname}.csv")
 
-	if os.path.exists(OUTPUTDIR):
-		os.system(f"rm -rf {OUTPUTDIR}")
-	os.system(f"mkdir -p {OUTPUTDIR}")
+	# if os.path.exists(OUTPUTDIR):
+	# 	os.system(f"rm -rf {OUTPUTDIR}")
+	# os.system(f"mkdir -p {OUTPUTDIR}")
+	for n in range(len(PROCCONFIG['postproc'])):
+		process = PROCCONFIG['postproc'][n]
+		print("init process: ", process)
+		try:
+			os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['output_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR}")
+		except:
+			raise Exception(f"{process} unavailable")
 
-	os.system(f"python3 {cache}/cyme-extract/postproc/write_glm.py -i {SRCDIR} -o {OUTPUTDIR} -c config.csv -d {CSVDIR}")
-
-	print(f"Moving config fiels to {OUTPUTDIR}")
-	file_names = os.listdir(SRCDIR)
+	print(f"Moving config fiels to {PROCCONFIG['output_folder']}")
+	file_names = os.listdir(PROCCONFIG['output_folder'])
 	for file_name in file_names:
 		for EXT in DEFAULT_OUTPUT:
 			if file_name.endswith(f".{EXT}"):
-				shutil.copy2(os.path.join(SRCDIR, file_name), OUTPUTDIR)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+				if not os.path.exists(f"{PROCCONFIG['output_folder']}/{file_name}"):
+					shutil.copy2(os.path.join(PROCCONFIG['output_folder'], file_name), PROCCONFIG['output_folder'])
 
