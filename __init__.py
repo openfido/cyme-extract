@@ -72,7 +72,6 @@ def main(inputs,outputs,options={}):
 		TIMEZONE = "UTC"
 		POSTPROCS = settings["POSTPROC"].tolist()
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
-		print(POSTPROCS)
 	else:
 		print(f"No 'config.csv', using default settings:")
 		INPUTTYPE = INPUTNAME.split(".")[1]
@@ -81,7 +80,6 @@ def main(inputs,outputs,options={}):
 		TIMEZONE = "UTC"
 		POSTPROCS = []
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
-		print(POSTPROCS)
 	
 	PROCCONFIG = {
 		"input_folder": SRCDIR,
@@ -105,8 +103,6 @@ def main(inputs,outputs,options={}):
 					except:
 						raise Exception(f"option {option} unexpected")
 
-	print("PROCCONFIG new: ", PROCCONFIG)
-
 	print(f"OpenFIDO config settings")
 	print(f"FILES = *.{PROCCONFIG['inputs']}")
 	print(f"TABLES = {PROCCONFIG['tables']}")
@@ -122,22 +118,22 @@ def main(inputs,outputs,options={}):
 		csvname = table[3:].lower()
 		os.system(f"mdb-export {PROCCONFIG['input_folder']}/{INPUTNAME} {table} > {CSVDIR}/{csvname}.csv")
 
-	# if os.path.exists(OUTPUTDIR):
-	# 	os.system(f"rm -rf {OUTPUTDIR}")
-	# os.system(f"mkdir -p {OUTPUTDIR}")
+	if not os.path.exists(PROCCONFIG['output_folder']):
+		os.system(f"mkdir -p {PROCCONFIG['output_folder']}")
+
 	for n in range(len(PROCCONFIG['postproc'])):
 		process = PROCCONFIG['postproc'][n]
-		print("init process: ", process)
 		try:
-			os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['output_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR}")
+			os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR}")
 		except:
 			raise Exception(f"{process} unavailable")
 
 	print(f"Moving config fiels to {PROCCONFIG['output_folder']}")
-	file_names = os.listdir(PROCCONFIG['output_folder'])
+	file_names = os.listdir(PROCCONFIG['input_folder'])
 	for file_name in file_names:
 		for EXT in DEFAULT_OUTPUT:
 			if file_name.endswith(f".{EXT}"):
 				if not os.path.exists(f"{PROCCONFIG['output_folder']}/{file_name}"):
-					shutil.copy2(os.path.join(PROCCONFIG['output_folder'], file_name), PROCCONFIG['output_folder'])
+					shutil.copy2(os.path.join(PROCCONFIG['input_folder'], file_name), PROCCONFIG['output_folder'])
+
 
