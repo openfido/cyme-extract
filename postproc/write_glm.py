@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 """OpenFIDO write_glm post-processor script
 Syntax:
-	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] [-h|--help] [-t|--cyme-tables]
+	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] 
+	[-h|--help] [-t|--cyme-tables] [-s|--single]
 Concept of Operation
 --------------------
 Files are processed in the local folder, which must contain the required CSV files list in the `cyme_tables_required` 
