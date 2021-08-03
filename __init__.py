@@ -114,7 +114,7 @@ def main(inputs,outputs,options={}):
 	for n in range(len(PROCCONFIG['postproc'])):
 		process = PROCCONFIG['postproc'][n]
 		try:
-			os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR}")
+			os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR} -s")
 		except:
 			raise Exception(f"{process} unavailable")
 
