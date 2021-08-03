@@ -28,15 +28,16 @@ rawurl = "https://raw.githubusercontent.com"
 giturl = "https://github.com"
 traceback_file = "/dev/stderr"
 
-SRCDIR = os.getcwd()
-OUTPUTDIR = f"{SRCDIR}/output"
 DEFAULT_OUTPUT=["zip", "csv", "png", "glm", "json"]
 
 def main(inputs,outputs,options={}):
 	
 	INPUTNAME = inputs[0]
 	OUTPUTNAME = outputs[0]
-
+	
+	SRCDIR = os.getcwd()
+	OUTPUTDIR = f"{SRCDIR}/openfido_{OUTPUTNAME}_output"
+	
 	CSVDIRNAME = INPUTNAME.split(".")[0]
 	CSVDIR = f"/tmp/openfido/{CSVDIRNAME}"
 	if os.path.exists(CSVDIR):
