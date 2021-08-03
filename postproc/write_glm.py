@@ -2,7 +2,7 @@
 """OpenFIDO write_glm post-processor script
 Syntax:
 	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] 
-	[-h|--help] [-t|--cyme-tables] [-s|--single]
+	[-h|--help] [-t|--cyme-tables] [-s|--single] [-n|--network ID]
 Concept of Operation
 --------------------
 Files are processed in the local folder, which must contain the required CSV files list in the `cyme_tables_required` 
@@ -128,6 +128,8 @@ input_folder = None
 output_folder = None
 data_folder = None
 config_file = None
+network_select = None
+single_file = False
 opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:t",["help","config=","input=","output=","data=","cyme-tables"])
 
 def help(exit_code=None,details=False):
@@ -157,6 +159,11 @@ for opt, arg in opts:
 		output_folder = arg.strip()
 	elif opt in ("-d", "--data"):
 		data_folder = arg.strip()
+	elif opt in ("-s", "--single"):
+		single_file = True
+	elif opt in ("-n", "--network ID"):
+		# only extract the selected network
+		network_select = arg.strip()
 	else:
 		error(f"{opt}={arg} is not a valid option");
 if input_folder == None:
@@ -1137,7 +1144,10 @@ def cyme_extract_5020(network_id,network):
 	creation_time = int(network["CreationTime"])
 	last_change = int(network["LastChange"])
 	load_factor = float(network["LoadFactor"])
-	glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}_{network_id}.glm")
+	if single_file:
+		glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}.glm")
+	else:
+		glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}_{network_id}.glm")
 
 	glm = GLM(glmname,"w")
 	glm.comment(
@@ -1376,22 +1386,23 @@ cyme_extract = {
 cyme_extract["-1"] = cyme_extract[str(default_cyme_extractor)]
 network_count = 0
 for network_id, network in cyme_table["network"].iterrows():
-	
 	if not re.match(settings["GLM_NETWORK_MATCHES"],network_id):
 		continue
 	else:
 		network_count += 1
-
-	version = network["Version"]
-	found = False
-	for key, extractor in cyme_extract.items():
-		if re.match(key,version):
-			if version == "-1":
-				warning(f"CYME model version is not specified (version=-1), using default extractor for version '{default_cyme_extractor}*'")
-			extractor(network_id,network)
-			found = True
-	if not found:
-		raise Exception(f"CYME model version {version} is not supported")
+	if network_select != None and network_select != network_id:
+		pass
+	else:
+		version = network["Version"]
+		found = False
+		for key, extractor in cyme_extract.items():
+			if re.match(key,version):
+				if version == "-1":
+					warning(f"CYME model version is not specified (version=-1), using default extractor for version '{default_cyme_extractor}*'")
+				extractor(network_id,network)
+				found = True
+		if not found:
+			raise Exception(f"CYME model version {version} is not supported")
 
 #
 # Final checks
