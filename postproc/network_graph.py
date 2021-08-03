@@ -43,7 +43,7 @@ config = {"input":"/","output":"/","from":[],"type":[]}
 input_folder = "."
 output_folder = ".."
 config_file = "config.csv"
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:t",["help","config=","input=","output=","data=","cyme-tables"])
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tsn:",["help","config=","input=","output=","data=","cyme-tables","single","network ID"])
 
 def help(exit_code=None,details=False):
 	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-c|--config CSV] [-h|--help] [-t|--cyme-tables]")
@@ -72,6 +72,8 @@ for opt, arg in opts:
 		output_folder = arg.strip()
 	elif opt in ("-d", "--data"):
 		data_folder = arg.strip()
+	elif opt in ("-s", "--single", "-n", "--network ID"):
+		pass
 	else:
 		error(f"{opt}={arg} is not a valid option");
 if input_folder == None:
