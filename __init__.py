@@ -1,4 +1,6 @@
 #
+# IMPORTANT NOTE: this script will automatically install needed tools only on system that use 'apt'
+#
 # Environment:
 #
 #   input_folder --> input folder where MDB files are placed
@@ -17,7 +19,7 @@
 #     OUTPUTS,<ext1> <ext2> ... --> extensions to save (default "zip", "csv", "png", "glm", "json")
 #
 
-import os, shutil
+import os, shutil, subprocess
 import pandas as pd
 
 cache = "/usr/local/share/openfido" # additional path for downloaded modules
@@ -102,6 +104,9 @@ def main(inputs,outputs,options={}):
 	for table in tables:
 		csvname = table[3:].lower()
 		os.system(f"mdb-export {PROCCONFIG['input_folder']}/{INPUTNAME} {table} > {CSVDIR}/{csvname}.csv")
+		row_count = os.popen(f"wc -l {CSVDIR}/{csvname}.csv").read()
+		if (int(row_count.strip().split(" ")[0]) == 1) and PROCCONFIG["extract"] != "all":
+			os.remove(f"{CSVDIR}/{csvname}.csv")
 
 	if not os.path.exists(PROCCONFIG['output_folder']):
 		os.system(f"mkdir -p {PROCCONFIG['output_folder']}")
@@ -121,4 +126,5 @@ def main(inputs,outputs,options={}):
 				if not os.path.exists(f"{PROCCONFIG['output_folder']}/{file_name}"):
 					shutil.copy2(os.path.join(PROCCONFIG['input_folder'], file_name), PROCCONFIG['output_folder'])
 
-
+	os.system(f"cd {CSVDIR} ; zip -q {PROCCONFIG['output_folder']}/{CSVDIRNAME}_database.zip *.csv")
+	os.system(f"rm -rf {CSVDIR}")
