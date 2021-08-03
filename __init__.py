@@ -35,11 +35,11 @@ def main(inputs,outputs,options={}):
 	INPUTNAME = inputs[0]
 	OUTPUTNAME = outputs[0]
 	
-	SRCDIR = os.getcwd()
-	OUTPUTDIR = f"{SRCDIR}/openfido_{OUTPUTNAME}_output"
-	
 	CSVDIRNAME = INPUTNAME.split(".")[0]
 	CSVDIR = f"/tmp/openfido/{CSVDIRNAME}"
+	SRCDIR = os.getcwd()
+	OUTPUTDIR = f"{SRCDIR}/openfido_{CSVDIRNAME}_output"
+
 	if os.path.exists(CSVDIR):
 		os.system(f"rm -rf {CSVDIR}")
 	os.system(f"mkdir -p {CSVDIR}")
