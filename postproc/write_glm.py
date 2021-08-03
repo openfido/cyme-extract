@@ -130,7 +130,7 @@ data_folder = None
 config_file = None
 network_select = None
 single_file = False
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:t",["help","config=","input=","output=","data=","cyme-tables"])
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tsn:",["help","config=","input=","output=","data=","cyme-tables","single","network ID"])
 
 def help(exit_code=None,details=False):
 	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-t|--cyme-tables] [-c|--config CSV]")
