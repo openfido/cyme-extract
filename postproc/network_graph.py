@@ -43,7 +43,7 @@ config = {"input":"/","output":"/","from":[],"type":[]}
 input_folder = "."
 output_folder = ".."
 config_file = "config.csv"
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:t",["help","config=","input=","output=","data=","cyme-tables"])
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tsn:",["help","config=","input=","output=","data=","cyme-tables","single","network ID"])
 
 def help(exit_code=None,details=False):
 	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-c|--config CSV] [-h|--help] [-t|--cyme-tables]")
@@ -72,6 +72,8 @@ for opt, arg in opts:
 		output_folder = arg.strip()
 	elif opt in ("-d", "--data"):
 		data_folder = arg.strip()
+	elif opt in ("-s", "--single", "-n", "--network ID"):
+		pass
 	else:
 		error(f"{opt}={arg} is not a valid option");
 if input_folder == None:
@@ -83,10 +85,10 @@ if data_folder == None:
 
 # load the configuration
 config = pd.DataFrame({
-	"PNG_FIGSIZE" : ["9x6"],
-	"PNG_FONTSIZE" : ["8"],
-	"PNG_FIGNAME" : ["network_graph.png"],
-	"PNG_NODESIZE" : ["10"],
+	"PNG_FIGSIZE" : ["20x10"],
+	"PNG_FONTSIZE" : ["1"],
+	"PNG_FIGNAME" : ["network_graph_1.png"],
+	"PNG_NODESIZE" : ["0.1"],
 	"PNG_NODECOLOR" : ["byphase"],
 	"PNG_LAYOUT" : ["nodexy"],
 	"PNG_ROOTNODE" : [""],
@@ -133,7 +135,7 @@ for index, edge in section.iterrows():
 	phase = edge["Phase"]
 	fnode = edge["FromNodeId"]
 	tnode = edge["ToNodeId"]
-	graph.add_edge(fnode,tnode,color=color[phase],weight=weight[phase],phase=phase)
+	graph.add_edge(str(fnode),str(tnode),color=color[phase],weight=weight[phase],phase=phase)
 if not settings["PNG_NODECOLOR"] or settings["PNG_NODECOLOR"] == "byphase":
 	node_colors = {}
 	for node in graph.nodes:
@@ -181,13 +183,16 @@ elif hasattr(nx,settings["PNG_LAYOUT"]+"_layout"):
 	pos = call(graph,**layout_options)
 else:
 	raise Exception("LAYOUT={settings['LAYOUT']} is invalid")
-nx.draw(graph, pos,
-	with_labels = True,
-	edge_color = colors,
-	width = weights,
-	labels = labels,
-	node_size = int(settings["PNG_NODESIZE"]),
-	node_color = node_colors,
-	font_size = int(settings["PNG_FONTSIZE"]),
-	)
-plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
+try:
+	nx.draw(graph, pos,
+		with_labels = True,
+		edge_color = colors,
+		width = weights,
+		labels = labels,
+		node_size = int(settings["PNG_NODESIZE"]),
+		node_color = node_colors,
+		font_size = int(settings["PNG_FONTSIZE"]),
+		)
+	plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
+except nx.NetworkXError as err:
+	print(f"Cannot generate the network plot because {err}")
