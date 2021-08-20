@@ -555,6 +555,19 @@ class GLM:
 						self.write(f"\t{tag} {value};")
 			self.write("}")
 
+	def clock(self, parameters = {}):
+		if not parameters:
+			raise Exception(f"clock needs parameters")
+		else:
+			self.write(f"clock")
+			self.write("{")
+			for tag, value in parameters.items():
+					if tag in ["timezone","starttime","stoptime"]:
+						self.write(f"\t{tag} \"{value}\";")
+					else:
+						raise Exception(f"module clock not support parameter {tag}")
+			self.write("}")
+
 	def ifdef(self, name, call):
 		glm.write(f"#ifdef {name}")
 		call()
@@ -1196,13 +1209,18 @@ def cyme_extract_5020(network_id,network):
 		glm.define(define[0].strip(),"=".join(define[1:]).strip())
 	if settings["GLM_NOMINAL_VOLTAGE"]:
 		glm.define("GLM_NOMINAL_VOLTAGE",settings["GLM_NOMINAL_VOLTAGE"])
-	for include in settings["GLM_INCLUDE"].split():
-		glm.include(include.strip())
-	if not settings["GLM_NOMINAL_VOLTAGE"]:
+	else:
 		if settings["GLM_INCLUDE"]: # cannot verify setting in GLM_INCLUDE until run in gridlabd
 			glm.ifndef("GLM_NOMINAL_VOLTAGE",lambda:glm.error("GLM_NOMINAL_VOLTAGE must be defined in either 'config.csv' or the GLM_INCLUDE file"))
 		else:
 			error("GLM_NOMINAL_VOLTAGE must be defined in either 'config.csv' or the GLM_INCLUDE file")
+	if settings["GLM_INCLUDE"]:
+		for include in settings["GLM_INCLUDE"].split():
+			glm.include(include.strip())
+	else:
+		glm.blank()
+		glm.comment("","default clock settings","")
+		glm.clock({"timezone":"PST+8PDT", "starttime":"2020-01-01T00:00:00+08:00", "stoptime":"2020-01-01T00:05:00+08:00"})
 
 	glm.blank()
 	glm.comment("","Modules","")
