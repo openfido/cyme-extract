@@ -256,18 +256,7 @@ try:
 		comment = "#",
 		).set_index("name")
 except:
-	settings = pd.DataFrame({
-	"TABLES" : "glm",
-	"EXTRACT" : "non-empty",
-	"POSTPROC" : ["network_graph.py", "write_glm.py"],
-	"GLM_NOMINAL_VOLTAGE" : [""],
-	"GLM_DEFINE" : "2.40178 kV",
-	"GLM_INCLUDE" : "config.glm",
-	"GLM_MODIFY" : "modify.csv",
-	"GLM_ASSUMPTIONS" : ["include"],
-	"GLM_WARNINGS" : ["stdout"],
-	}, columns=['name', 'value'])
-	warning(f"Cannot read {config_file}, use default configurations")
+	raise Exception(f"Cannot read {config_file}, use default configurations")
 for name, values in settings.iterrows():
 	if name in config.index:
 		config["value"][name] = values[0]
