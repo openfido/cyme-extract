@@ -261,11 +261,12 @@ elif os.path.exists(f"{os.path.dirname(os.getcwd())}/{config_file}"):
 		comment = "#",
 		).set_index("name")
 else:
-	warning(f"Cannot read {config_file}, use default configurations")
 	settings = {
 		"GLM_NOMINAL_VOLTAGE" : "2.40178 kV",
-		"GLM_MODIFY" : "modify.csv",
+		"GLM_MODIFY" : ["modify.csv"],
+		"GLM_WARNINGS" : ["stdout"],
 	}
+	warning(f"Cannot read {config_file}, use default configurations")
 for name, values in settings.iterrows():
 	if name in config.index:
 		config["value"][name] = values[0]
