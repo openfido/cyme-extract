@@ -686,18 +686,21 @@ class GLM:
 		for modify in settings["GLM_MODIFY"].split():
 			self.blank()
 			self.comment("",f"Modifications from '{modify}'","")
-			with open(f"{input_folder}/{modify}","r") as fh:
-				reader = csv.reader(fh)
-				for row in reader:
-					if len(row) == 0:
-						warning(f"No modifications from {modify}")
-					elif 0 < len(row) < 3:
-						warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
-					elif len(row) > 3:
-						warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
-						self.modify(*row[0:3])
-					else:
-						self.modify(*row)
+			try:
+				with open(f"{input_folder}/{modify}","r") as fh:
+					reader = csv.reader(fh)
+					for row in reader:
+						if len(row) == 0:
+							warning(f"No modifications from {modify}")
+						elif 0 < len(row) < 3:
+							warning(f"{modify}: row '{','.join(list(row))}' is missing one or more required fields")
+						elif len(row) > 3:
+							warning(f"{modify}: row '{','.join(list(row))}' has extra fields that will be ignored")
+							self.modify(*row[0:3])
+						else:
+							self.modify(*row)
+			except:
+				pass
 
 	# general glm model add function
 	def add(self,oclass,device_id,data,version,**kwargs):
