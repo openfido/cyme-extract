@@ -250,12 +250,17 @@ config = pd.DataFrame({
 	"GLM_ASSUMPTIONS" : ["include"]
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
-try:
+if os.path.exists(config_file):
 	settings = pd.read_csv(config_file, dtype=str,
 		names=["name","value"],
 		comment = "#",
 		).set_index("name")
-except:
+elif os.path.exists(f"{os.path.dirname(os.getcwd())}/{config_file}"):
+	settings = pd.read_csv(f"{os.path.dirname(os.getcwd())}/{config_file}", dtype=str,
+		names=["name","value"],
+		comment = "#",
+		).set_index("name")
+else:
 	raise Exception(f"Cannot read {config_file}, use default configurations")
 for name, values in settings.iterrows():
 	if name in config.index:
