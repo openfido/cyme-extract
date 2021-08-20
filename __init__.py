@@ -60,6 +60,19 @@ def main(inputs,outputs,options={}):
 		TIMEZONE = "UTC"
 		POSTPROCS = settings["POSTPROC"].tolist()
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
+	elif os.path.exists(f"{os.path.dirname(SRCDIR)}/config.csv"):
+		print(f"Use settings from 'config.csv' in parent directory:")
+		config = pd.read_csv(f"{os.path.dirname(SRCDIR)}/config.csv", dtype=str,
+			names=["name","value"],
+			comment = "#",
+			).set_index("name")
+		settings = config["value"]
+		INPUTTYPE = INPUTNAME.split(".")[1]
+		TABLES = settings["TABLES"]
+		EXTRACT = settings["EXTRACT"]
+		TIMEZONE = "UTC"
+		POSTPROCS = settings["POSTPROC"].tolist()
+		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	else:
 		print(f"No 'config.csv', using default settings:")
 		INPUTTYPE = INPUTNAME.split(".")[1]
