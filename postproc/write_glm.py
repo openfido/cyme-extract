@@ -264,7 +264,8 @@ except:
 	"GLM_DEFINE" : "2.40178 kV",
 	"GLM_INCLUDE" : "config.glm",
 	"GLM_MODIFY" : "modify.csv",
-	"GLM_ASSUMPTIONS" : ["include"]
+	"GLM_ASSUMPTIONS" : ["include"],
+	"GLM_WARNINGS" : ["stdout"],
 	}, columns=['name', 'value'])
 	warning(f"Cannot read {config_file}, use default configurations")
 for name, values in settings.iterrows():
