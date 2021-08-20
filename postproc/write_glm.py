@@ -208,6 +208,7 @@ warning_count = 0
 def warning(*args):
 	global warning_count
 	warning_count += 1
+	print("settings: ", settings)
 	if settings["GLM_WARNINGS"] == "stdout":
 		print(f"*** WARNING {warning_count} ***")
 		print(" ","\n  ".join(args))
@@ -264,7 +265,7 @@ else:
 	settings = {
 		"GLM_NOMINAL_VOLTAGE" : "2.40178 kV",
 		"GLM_MODIFY" : ["modify.csv"],
-		"GLM_WARNINGS" : ["stdout"],
+		"GLM_WARNINGS" : "stdout",
 	}
 	warning(f"Cannot read {config_file}, use default configurations")
 for name, values in settings.iterrows():
