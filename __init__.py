@@ -127,5 +127,5 @@ def main(inputs,outputs,options={}):
 				if not os.path.exists(f"{PROCCONFIG['output_folder']}/{file_name}"):
 					shutil.copy2(os.path.join(PROCCONFIG['input_folder'], file_name), PROCCONFIG['output_folder'])
 
-	os.system(f"cd {CSVDIR} ; zip -q {PROCCONFIG['output_folder']}/{CSVDIRNAME}_database.zip *.csv")
+	# os.system(f"cd {CSVDIR} ; zip -q {PROCCONFIG['output_folder']}/{CSVDIRNAME}_database.zip *.csv")
 	os.system(f"rm -rf {CSVDIR}")
