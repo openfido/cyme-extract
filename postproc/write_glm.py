@@ -256,7 +256,6 @@ try:
 		comment = "#",
 		).set_index("name")
 except:
-	warning(f"Cannot read {config_file}, use default configurations")
 	settings = pd.DataFrame({
 	"TABLES" : "glm",
 	"EXTRACT" : "non-empty",
@@ -267,8 +266,7 @@ except:
 	"GLM_MODIFY" : "modify.csv",
 	"GLM_ASSUMPTIONS" : ["include"]
 	}, columns=['name', 'value'])
-	print("settings 1: ", settings)
-print("settings 2: ", settings)
+	warning(f"Cannot read {config_file}, use default configurations")
 for name, values in settings.iterrows():
 	if name in config.index:
 		config["value"][name] = values[0]
