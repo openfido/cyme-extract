@@ -261,7 +261,8 @@ elif os.path.exists(f"{os.path.dirname(os.getcwd())}/{config_file}"):
 		comment = "#",
 		).set_index("name")
 else:
-	raise Exception(f"Cannot read {config_file}, use default configurations")
+	warning(f"Cannot read {config_file}, use default configurations")
+	help(1)
 for name, values in settings.iterrows():
 	if name in config.index:
 		config["value"][name] = values[0]
