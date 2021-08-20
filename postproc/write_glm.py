@@ -262,12 +262,12 @@ elif os.path.exists(f"{os.path.dirname(os.getcwd())}/{config_file}"):
 		comment = "#",
 		).set_index("name")
 else:
-	settings = {
-		"GLM_NOMINAL_VOLTAGE" : "2.40178 kV",
-		"GLM_MODIFY" : ["modify.csv"],
-		"GLM_WARNINGS" : "stdout",
+	d = {
+		"name" : ["GLM_NOMINAL_VOLTAGE", "GLM_MODIFY", "GLM_WARNINGS"],
+		"value" : ["2.40178 kV", "modify.csv", "stdout"]
 	}
-	warning(f"Cannot read {config_file}, use default configurations")
+	settings = pd.DataFrame(data=d).set_index("name")
+	print(f"Cannot read {config_file}, use default configurations")
 for name, values in settings.iterrows():
 	if name in config.index:
 		config["value"][name] = values[0]
