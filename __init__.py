@@ -19,7 +19,7 @@
 #     OUTPUTS,<ext1> <ext2> ... --> extensions to save (default "zip", "csv", "png", "glm", "json")
 #
 
-import os, shutil, subprocess
+import os, shutil, subprocess, sys, getopt
 import pandas as pd
 
 cache = "/usr/local/share/openfido" # additional path for downloaded modules
