@@ -1032,7 +1032,7 @@ class GLM:
 				"control" : "MANUAL",
 				})
 		else:
-			warning(f"capacitor {capacitor_id} does not specify capacitance for all phases")
+			warning(f"capacitor {capacitor_id} does not specify capacitance for all phases, a small default value will be adopted to avoid error")
 			switchA = "OPEN"
 			self.assume(capacitor_name,"switchA",switchA,f"capacitor {capacitor_id} does not specify phase A capacitance, capacitor disconnected")
 			switchB = "OPEN"
@@ -1044,9 +1044,9 @@ class GLM:
 				"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 				"phases" : "ABC",
 				"phases_connected" : "ABC",
-				"capacitor_A" : f"{KVARA} kVA",
-				"capacitor_B" : f"{KVARB} kVA",
-				"capacitor_C" : f"{KVARC} kVA",
+				"capacitor_A" : f"0.0001 kVA",
+				"capacitor_B" : f"0.0001 kVA",
+				"capacitor_C" : f"0.0001 kVA",
 				"switchA" : "OPEN",
 				"switchB" : "OPEN",
 				"switchC" : "OPEN",
