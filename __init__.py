@@ -130,7 +130,10 @@ def main(inputs,outputs,options={}):
 		try:
 			os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR} -s")
 		except:
-			raise Exception(f"{process} unavailable")
+			# raise Exception(f"{process} unavailable")
+			import traceback
+			print(f"ERROR [mdb-cyme2glm]: {traceback.print_exc()}")
+			sys.exit(15)
 
 	print(f"Moving config fiels to {PROCCONFIG['output_folder']}")
 	file_names = os.listdir(PROCCONFIG['input_folder'])
