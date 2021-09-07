@@ -35,10 +35,8 @@ import datetime as dt
 import pandas as pd
 import networkx as nx
 import matplotlib.pyplot as plt
-from math import sqrt
-from math import cos
-from math import sin
-from math import pi
+import math
+from math import sqrt, cos, sin, pi
 import re
 import hashlib
 import csv
@@ -46,6 +44,7 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4,compact=True)
 import traceback
 from copy import copy
+import numpy as np
 
 #
 # Required tables to operate properly
@@ -53,62 +52,13 @@ from copy import copy
 cyme_tables_required = [
 	"CYMNETWORK","CYMHEADNODE","CYMNODE","CYMSECTION","CYMSECTIONDEVICE",
 	"CYMOVERHEADBYPHASE","CYMOVERHEADLINEUNBALANCED","CYMEQCONDUCTOR",
-	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED",
-	"CYMSWITCH","CYMCUSTOMERLOAD","CYMLOAD","CYMSHUNTCAPACITOR",
+	"CYMEQGEOMETRICALARRANGEMENT","CYMEQOVERHEADLINEUNBALANCED","CYMEQFUSE",
+	"CYMSWITCH","CYMCUSTOMERLOAD","CYMLOAD","CYMSHUNTCAPACITOR","CYMFUSE",
 	"CYMTRANSFORMER","CYMEQTRANSFORMER","CYMREGULATOR","CYMEQREGULATOR",
-	"CYMOVERHEADLINE","CYMUNDERGROUNDLINE","CYMNODETAG",
+	"CYMOVERHEADLINE","CYMUNDERGROUNDLINE","CYMNODETAG","CYMEQCABLE",
 	"CYMANTIISLANDING","CYMARCFLASHNODE","CYMAUTOTAPCHANGINGEXTST","CYMBACKGROUNDMAP",
 	"CYMBREAKER","CYMBUSWAY","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
-	"CYMCTYPEFILTER","CYMDCLINK"]
-	# "CYMDEVICETAG","CYMDEVICEUDD","CYMDOUBLECIRCUIT","CYMDOUBLECIRCUITLINE",
-	# "CYMDOUBLETUNEDFILTER","CYMELECCONVERTERGENERATOR","CYMEQAUTOTRANSFORMER",
-	# "CYMEQAVERAGEGEOARRANGEMENT","CYMEQBREAKER","CYMEQBUSWAY","CYMEQCABLE",
-	# "CYMEQDEFAULTEQUIPMENT","CYMEQDOUBLECIRCUITSPACING","CYMEQDOUBLETUNEDFILTER",
-	# "CYMEQELECCONVERTERGENERATOR","CYMEQFREQUENCYSOURCE",
-	# "CYMEQGENCOSTCURVEMODELPOINT","CYMEQGENERATIONCURVEMODEL","CYMEQGENERATORCOSTCURVEMODEL",
-	# "CYMEQGROUNDINGTRANSFORMER","CYMEQHIGHPASSFILTER","CYMEQINDUCTIONGENERATOR",
-	# "CYMEQINDUCTIONMACHINEEQCIRCUIT","CYMEQINDUCTIONMOTOR","CYMEQINSOLATIONMODEL",
-	# "CYMEQINSOLATIONMODELPOINTS","CYMEQLOADCURVEMODEL","CYMEQLVCB","CYMEQMICROTURBINE",
-	# "CYMEQMISCELLANEOUS","CYMEQMOTORCURVEMODEL","CYMEQMULTIWIRECONCNEUTCONFIG",
-	# "CYMEQNETWORKPROTECTOR","CYMEQNONIDEALCONVERTER","CYMEQOVERHEADLINE",
-	# "CYMEQOVERHEADSPACINGOFCOND","CYMEQPHASESHIFTERTRANSFORMER","CYMEQPHOTOVOLTAIC",
-	# "CYMEQRECLOSER","CYMEQRELIABILITYEXTENSION","CYMEQSECTIONALIZER","CYMEQSERIESCAPACITOR",
-	# "CYMEQSERIESREACTOR","CYMEQSHUNTCAPACITOR",
-	# "CYMEQSINGLETUNEDFILTER","CYMEQSOFC","CYMEQSOURCE","CYMEQSOURCEBRANCH",
-	# "CYMEQSOURCEHARMONICENVELOPPE","CYMEQSOURCEUTILEQUIVIMPEDANCE","CYMEQSVC",
-	# "CYMEQSWITCH","CYMEQSYMBOL","CYMEQSYNCHMACHINEEQCIRCUIT","CYMEQSYNCHRONOUSGENERATOR",
-	# "CYMEQSYNCHRONOUSMACHINEEXTHA","CYMEQSYNCHRONOUSMACHINEEXTST","CYMEQTAPESHIELDEDCONFIGURATION",
-	# "CYMEQTHREEWINDAUTOTRANSFORMER","CYMEQTHREEWINDINGTRANSFORMER","CYMEQTWOVALUEPOINT","CYMEQUDD",
-	# "CYMEQUDM","CYMEQUIVALENTLOAD","CYMEQUIVALENTSOURCE","CYMEQUNSHIELDEDCONFIGURATION",
-	# "CYMEQWECS","CYMEQWINDMODEL","CYMEQWINDMODELPOINT","CYMFAILUREEVENT","CYMFREQUENCYDEPENDENTBRANCH",
-	# "CYMFUSE","CYMGRAPHICALELEMENT","CYMGRAPHICALIMAGE","CYMGROWTHRATE","CYMHIGHPASSFILTER","CYMIDEALCONVERTER",
-	# "CYMIDPATTERN","CYMINDUCTIONGENERATOR","CYMINDUCTIONMOTOR","CYMINDUCTMOTORSTARTASSISTMSA",
-	# "CYMINSTCONTROLLEDDEVICE","CYMINSTCURRENTTRANSFORMER","CYMINSTFREQUENCYRELAY","CYMINSTINTERMEDIATEPOINT",
-	# "CYMINSTPOTENTIALTRANSFORMER","CYMINSTRELAYTCC","CYMINSTRUMENTUDD","CYMINSTRUMENTUDM",
-	# "CYMINSTUDMVARIABLE","CYMINSTVOLTAGERELAY","CYMINTERMEDIATEPOINT","CYMLDCSETTINGS","CYMLOADMODEL",
-	# "CYMLOADTAPCHANGER","CYMLOADTAPCHANGER1PHEXTLTD","CYMLOADTAPCHANGEREXTLTD","CYMLVCB","CYMMETER",
-	# "CYMMICROTURBINE","CYMMISCELLANEOUS","CYMMOTORLOADCHARACTERISTICS","CYMMUTUALLYCOUPLED3PHASEBRANCH",
-	# "CYMNETWORKCONFIG","CYMNETWORKCONNECTION","CYMNETWORKDEPENDENCIES","CYMNETWORKENVIRONMENT","CYMNETWORKEQUIVALENT",
-	# "CYMNETWORKLOCK","CYMNETWORKMETER","CYMNETWORKSYMBOL","CYMNETWORKTAG","CYMNETWORKUDD","CYMNETWORKUTILIZATIONFACTOR",
-	# "CYMNODECONNECTOR","CYMNODEINTER","CYMNONIDEALCONVERTER","CYMOPTIMALPOWERFLOWNODE",
-	# "CYMPHASESHIFTERTRANSFORMER","CYMPITCHCONTROL","CYMPITCHCONTROLCURVEPOINT","CYMPRIORITY",
-	# "CYMRAMDEVICECALIBRATION","CYMRAMFEEDERCALIBRATION","CYMRECLOSER","CYMREGULATORBYPHASE","CYMRLCBRANCH",
-	# "CYMSCHEMAVERSION","CYMSECTIONALIZER","CYMSECTIONENVIRONMENT","CYMSECTIONNODE","CYMSECTIONPOINT",
-	# "CYMSECTIONUDD","CYMSERIESCAPACITOR","CYMSERIESREACTOR","CYMSHUNTFREQUENCYSOURCE","CYMSHUNTREACTOR",
-	# "CYMSINGLEFREQUENCYSOURCE","CYMSINGLETUNEDFILTER","CYMSOFC","CYMSOURCE","CYMSOURCETAG",
-	# "CYMSTARTINGASSISTANCEMSA","CYMSTARTINGCURVEPOINT","CYMSTATCOM","CYMSTRUCTURE","CYMSTRUCTURECONNECTION",
-	# "CYMSTRUCTURETAG","CYMSVC","CYMSWITCHABLESHUNTBANK","CYMSWITCHABLESHUNTBANKUNIT","CYMSYNCHRONOUSGENERATOR",
-	# "CYMSYNCHRONOUSMOTOR","CYMSYNCHRONOUSMOTOREXTST","CYMTCCCOORDINATIONCURVE",
-	# "CYMTCCFUSE","CYMTCCINSTANTANEOUS","CYMTCCLVCB","CYMTCCRECLOSER","CYMTCCRECLOSERCURVE","CYMTCCRELAY",
-	# "CYMTHREEWINDINGTRANSFORMER","CYMTRANSFORMERBYPHASE","CYMUDM","CYMUDMVARIABLE",
-	# "CYMUNCONNECTEDNODE","CYMUPFC","CYMUTILIZATIONFACTOR","CYMVARIABLEFREQUENCYDRIVE",
-	# "CYMWECS","CYMZONEENVIRONMENT","CYMARCFURNACE","CYMBUSDISPLAY","CYMDBPARAMETERS","CYMEQARCFURNACE",
-	# "CYMEQCTYPEFILTER","CYMEQFUSE","CYMEQIDEALCONVERTER","CYMEQLOADTAPCHANGER","CYMEQREACTPOWERCAPPOINT",
-	# "CYMEQSHUNTREACTOR","CYMEQSOURCEUTILSCPOWER","CYMEQSYNCHRONOUSMOTOR","CYMEQUDMVARIABLE",
-	# "CYMEQVARIABLEFREQUENCYDRIVE","CYMGROUNDINGTRANSFORMER","CYMINDUCTIONMOTOREXTST","CYMINSTRUMENT",
-	# "CYMLIMITINGDEVICE","CYMLONGTERMDYNAMICSCURVEEXT","CYMNETWORKAREA","CYMNETWORKPROTECTOR","CYMNODEUDD",
-	# "CYMPHOTOVOLTAIC","CYMSCHEMATABLE","CYMSERIESFREQUENCYSOURCE","CYMSOURCEHARMONICENVELOPPE","CYMTCCBASE",
-	# "CYMTCCMOTOR","CYMTCCTRANSFORMER","CYMZONE"]
+	"CYMCTYPEFILTER","CYMDCLINK","CYMTRANSFORMERBYPHASE","CYMRECLOSER","CYMEQOVERHEADLINE"]
 
 
 #
@@ -343,7 +293,7 @@ glm_devices = {
 	4 : "regulator",
 	5 : "transformer",
 	8 : "breaker",
-	# 10 : "recloser",
+	10 : "recloser",
 	# 12 : "sectionalizer",
 	13 : "switch",
 	14 : "fuse",
@@ -351,6 +301,7 @@ glm_devices = {
 	20 : "load",
 	21 : "load",
 	23 : "overhead_line",
+	38 : "single_transformer",
 }
 
 #
@@ -594,9 +545,13 @@ class GLM:
 			self.objects[name] = obj
 		else:
 			obj = self.objects[name]
-		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["switch","overhead_line","transformer","regulator"]:
+		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["underground_line","switch","overhead_line","transformer","single_transformer","regulator"]:
 			# if obj is created based on a link object
-			new_name = self.name(name, oclass) # new name
+			if oclass == "single_transformer":
+				new_name = self.name(name+f"_{parameters['phases']}", "transformer") # new name
+				oclass = "transformer"
+			else:
+				new_name = self.name(name, oclass) # new name
 			new_obj = {"name" : new_name}
 			self.objects[new_name] = new_obj
 			for key, value in obj.items():
@@ -610,6 +565,8 @@ class GLM:
 				else:
 					new_obj[key] = value
 			new_obj["class"] = oclass
+			if "nominal_voltage" in new_obj.keys() and new_obj["class"] == "underground_line":
+				del new_obj["nominal_voltage"]
 			if new_name in self.refcount.keys():
 				self.refcount[new_name] += 1
 			else:
@@ -753,8 +710,27 @@ class GLM:
 			obj["bustype"] = "PQ"
 		return obj
 
-	# add an overhead based on a link
+	# add an overhead line based on a link
 	def add_overhead_line(self,line_id,line,version):
+		line_name = self.name(line_id,"link")
+		length = float(line["Length"])
+		if length == 0.0:
+			length = 0.01
+		line_conductor_id = line["LineId"]
+		line_conductor = cyme_table["eqoverheadline"].loc[line_conductor_id]
+		conductorABC_id = line_conductor["PhaseConductorId"]
+		conductorN_id = line_conductor["NeutralConductorId"]
+		self.add_overhead_line_conductors([conductorABC_id,conductorN_id],version)
+		spacing_id = line_conductor["ConductorSpacingId"]
+		self.add_line_spacing(spacing_id,version)
+		configuration_name = self.add_line_configuration([conductorABC_id,conductorABC_id,conductorABC_id,conductorN_id,spacing_id],version)
+		return self.object("overhead_line", line_name, {
+			"length" : "%.2f m"%length,
+			"configuration" : configuration_name,
+			})
+
+	# add an overhead line by phase based on a link
+	def add_overhead_line_phase(self,line_id,line,version):
 		line_name = self.name(line_id,"link")
 		length = float(line["Length"])
 		if length == 0.0:
@@ -797,6 +773,62 @@ class GLM:
 				"spacing" : spacing_name,
 				})
 		return self.object("overhead_line", line_name, {
+			"length" : "%.2f m"%length,
+			"configuration" : configuration_name,
+			})
+
+	# add an underground line based on a link
+	def add_underground_line(self,line_id,line,version):
+		line_name = self.name(line_id,"link")
+		length = float(line["Length"])*1000
+		if length == 0.0:
+			length = 0.01
+		cable_conductor_id = line["CableId"]
+		cable_conductor = cyme_table["eqcable"].loc[cable_conductor_id]
+		# nominal_rating = float(cable_conductor["NominalRating"])
+		conductor_name = self.name("DEFAULT","underground_line_conductor")
+		if not conductor_name in self.objects.keys():
+			# only use default settings for now
+			self.object("underground_line_conductor",conductor_name,{
+				"outer_diameter" : "1.980000 cm",
+				"conductor_gmr" : "0.036800 cm",
+				"conductor_diameter" : "1.150000 cm",
+				"conductor_resistance" : "0.105000 Ohm/km",
+				"neutral_gmr" : "0.003310 cm",
+				"neutral_resistance" : "5.903000 Ohm/km",
+				"neutral_diameter" : "0.102000 cm",
+				"neutral_strands" : "20.000000",
+				# "rating.summer.continuous" : "%.1f A" % nominal_rating,
+				# "rating.winter.continuous" : "%.1f A" % nominal_rating,
+				# "rating.summer.emergency" : "%.1f A" % nominal_rating,
+				# "rating.winter.emergency" : "%.1f A" % nominal_rating,
+				})
+		spacing_name = self.name("DEFAULT","line_spacing")
+		if not spacing_name in self.objects.keys():
+			# only use default settings for now
+			self.object("line_spacing",spacing_name,{
+				"distance_AB" :  "2.47 m",
+				"distance_AC" :  "4.80 m",
+				"distance_BC" :  "2.47 m",
+				"distance_AN" :  "4.46 m",
+				"distance_BN" :  "3.71 m",
+				"distance_CN" :  "3.35 m",
+				"distance_AE" :  "16.75 m",
+				"distance_BE" :  "17.35 m",
+				"distance_CE" :  "16.75 m",
+				"distance_NE" :  "13.75 m",
+				})
+		configuration_name = self.name("UL_DEFAULT","line_configuration")
+		if not configuration_name in self.objects.keys():
+			# only use default settings for now
+			self.object("line_configuration",configuration_name,{
+				"conductor_A" : conductor_name,
+				"conductor_B" : conductor_name,
+				"conductor_C" : conductor_name,
+				"conductor_N" : conductor_name,
+				"spacing" : spacing_name,
+				})
+		return self.object("underground_line", line_name, {
 			"length" : "%.2f m"%length,
 			"configuration" : configuration_name,
 			})
@@ -877,34 +909,53 @@ class GLM:
 				})
 		return configuration_name
 
-	# get the phase switch status
-	def get_switch_phase_status(self,phases,state):
-		if state in phases:
-			return "CLOSED"
-		else:
-			return "OPEN"
-
 	# add a switch based on a link
 	def add_switch(self,switch_id,switch,version):
 		switch_name = self.name(switch_id,"link")
 		phases = cyme_phase_name[int(switch["ClosedPhase"])]
-		return self.object("switch", switch_name, {
-			"phase_A_state" : self.get_switch_phase_status(phases,"A"),
-			"phase_B_state" : self.get_switch_phase_status(phases,"B"),
-			"phase_C_state" : self.get_switch_phase_status(phases,"C"),
-			"operating_mode" : "BANKED"
-			},overwrite=False)
+		switch_config = {
+		"operating_mode" : "BANKED"
+		}
+		for phase in phases:
+			if phase != "N":
+				switch_config[f'phase_{phase}_state'] = "CLOSED"
+		return self.object("switch", switch_name, switch_config,overwrite=False)
 
 	# add a breaker based on a link
 	def add_breaker(self,breaker_id,breaker,version):
 		breaker_name = self.name(breaker_id,"link")
 		phases = cyme_phase_name[int(breaker["ClosedPhase"])]
-		return self.object("switch", breaker_name, {
-			"phase_A_state" : self.get_switch_phase_status(phases,"A"),
-			"phase_B_state" : self.get_switch_phase_status(phases,"B"),
-			"phase_C_state" : self.get_switch_phase_status(phases,"C"),
-			"operating_mode" : "BANKED"
-			},overwrite=False)
+		breaker_config = {
+		"operating_mode" : "BANKED"
+		}
+		for phase in phases:
+			if phase != "N":
+				breaker_config[f'phase_{phase}_state'] = "CLOSED"
+		return self.object("switch", breaker_name, breaker_config,overwrite=False)
+
+	# add a recloser based on a link
+	def add_recloser(self,recloser_id,recloser,version):
+		recloser_name = self.name(recloser_id,"link")
+		phases = cyme_phase_name[int(recloser["ClosedPhase"])]
+		recloser_config = {
+		"operating_mode" : "BANKED"
+		}
+		for phase in phases:
+			if phase != "N":
+				recloser_config[f'phase_{phase}_state'] = "CLOSED"
+		return self.object("switch", recloser_name, recloser_config,overwrite=False)
+
+	# add a fuse based on a link
+	def add_fuse(self,fuse_id,fuse,version):
+		fuse_name = self.name(fuse_id,"link")
+		phases = cyme_phase_name[int(fuse["ClosedPhase"])]
+		fuse_config = {
+		"operating_mode" : "BANKED"
+		}
+		for phase in phases:
+			if phase != "N":
+				fuse_config[f'phase_{phase}_state'] = "CLOSED"
+		return self.object("switch", fuse_name, fuse_config,overwrite=False)
 
 	# add a load
 	def add_load(self,load_id,load,version,**kwargs):
@@ -942,8 +993,8 @@ class GLM:
 		if device_type in glm_devices.keys():
 			ConsumerClassId = load["ConsumerClassId"]
 			# the default load unit in gridlabd is Volt-Amperes, or Amperes or Ohms
-			load_value1 = float(load["LoadValue1"]) * 1000
-			load_value2 = float(load["LoadValue2"]) * 1000
+			load_value1 = float(load["LoadValue1"]) * 1
+			load_value2 = float(load["LoadValue2"]) * 1
 			# from the mdb file, type for constant power load is defined as PQ
 			load_types = {"Z":"constant_impedance","I":"constant_current","PQ":"constant_power"}
 			if ConsumerClassId in load_types.keys() and (load_value1*load_value1+load_value2*load_value2) > 0:
@@ -1099,11 +1150,56 @@ class GLM:
 			"configuration" : configuration_name,
 			})
 
+	# add a single phase transformer
+	def add_single_transformer(self,transformer_id, transformer,version):
+		for n in range(1,4):
+			equipment_id = transformer[f"PhaseTransformerID{n}"]
+			if isinstance(equipment_id, str):
+				equipment = cyme_table["eqtransformer"].loc[equipment_id]
+				NominalRatingKVA = float(equipment["NominalRatingKVA"])
+				PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
+				SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
+				PosSeqImpedancePercent = float(equipment["PosSeqImpedancePercent"])
+				XRRatio = float(equipment["XRRatio"])
+				r = XRRatio / 100.0 / sqrt(1+XRRatio**2)
+				x = r * XRRatio
+				nominal_rating = "%.4gkVA" % (NominalRatingKVA)
+				primary_voltage = "%.4gkV" % (PrimaryVoltageKVLL/sqrt(3.0))
+				secondary_voltage = "%.4gkV" % (SecondaryVoltageKVLL/sqrt(3.0))
+				configuration_name = self.name([nominal_rating,primary_voltage,secondary_voltage,"R%.4g"%(r),"X%4g"%(x),cyme_phase_name[n]], "transformer_configuration")
+				if primary_voltage == secondary_voltage:
+					secondary_voltage = "%.4gkV" % ((SecondaryVoltageKVLL+0.001)/sqrt(3.0))
+					self.assume(configuration_name,"secondary_voltage",secondary_voltage,f"transformer {transformer_id} primary voltage is the same as secondary voltage")
+				if r == 0.0:
+					r = 0.000333
+					x = 0.00222
+					self.assume(configuration_name,"resistance",r,f"transformer {transformer_id} XRRatio is zero")
+					self.assume(configuration_name,"reactance",x,f"transformer {transformer_id} XRRatio is zero")
+				connect_type = "SINGLE_PHASE"
+				self.assume(configuration_name,"connect_type",connect_type,f"transformer '{transformer_id}' does not specify connection type")
+				install_type = "PADMOUNT"
+				self.assume(configuration_name,"install_type",install_type,f"transformer '{transformer_id}' does not specify install type")
+
+				self.object("transformer_configuration", configuration_name, {
+					"connect_type" : connect_type,
+					"install_type" : install_type,
+					"power_rating" : "%.4gkVA" % (NominalRatingKVA),
+					"primary_voltage" : primary_voltage,
+					"secondary_voltage" : secondary_voltage,
+					"resistance" : r,
+					"reactance" : x,
+					})
+				link_name = self.name(transformer_id,"link")
+				self.object("single_transformer", link_name, {
+					"nominal_voltage" : None,
+					"phases" : "".join(sorted(set(cyme_phase_name[n] + "N"))),
+					"configuration" : configuration_name,
+					})
+
 	# add a regulator
 	def add_regulator(self, regulator_id, regulator, version):
 		equipment_id = regulator["EquipmentId"]
 		equipment = cyme_table["eqregulator"].loc[equipment_id]
-
 		CTPrimaryRating = float(regulator["CTPrimaryRating"])
 		PTRatio = float(regulator["PTRatio"])
 		try:
@@ -1267,7 +1363,7 @@ def cyme_extract_5020(network_id,network):
 	# overhead lines
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
-			glm.add("overhead_line", cyme_id, cyme_data, version=5020)
+			glm.add("overhead_line_phase", cyme_id, cyme_data, version=5020)
 	except:
 		pass
 
@@ -1276,7 +1372,21 @@ def cyme_extract_5020(network_id,network):
 		for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
 			glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
 	except:
-		warning(f"Not CYME table 'overheadlineunbalanced' ")
+		pass
+
+	# overhead lines
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["overheadline"],NetworkId=network_id).iterrows():
+			glm.add("overhead_line", cyme_id, cyme_data, version=5020)
+	except:
+		pass
+
+	# overhead lines
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["undergroundline"],NetworkId=network_id).iterrows():
+			glm.add("underground_line", cyme_id, cyme_data, version=5020)
+	except:
+		pass
 
 	# cyme_table["load"]
 	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
@@ -1285,6 +1395,13 @@ def cyme_extract_5020(network_id,network):
 	# cyme_table["transformer"]
 	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
 		glm.add("transformer", cyme_id, cyme_data, version=5020)
+
+	# cyme_table["transformerbyphase"]
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["transformerbyphase"],NetworkId=network_id).iterrows():
+			glm.add("single_transformer", cyme_id, cyme_data, version=5020)
+	except:
+		pass
 
 	# cyme_table["regulator"]
 	try:
@@ -1305,6 +1422,20 @@ def cyme_extract_5020(network_id,network):
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["breaker"],NetworkId=network_id).iterrows():
 			glm.add("breaker", cyme_id, cyme_data, version=5020)
+	except:
+		pass
+
+	# recloser
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["recloser"],NetworkId=network_id).iterrows():
+			glm.add("recloser", cyme_id, cyme_data, version=5020)
+	except:
+		pass
+
+	# fuse
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["fuse"],NetworkId=network_id).iterrows():
+			glm.add("fuse", cyme_id, cyme_data, version=5020)
 	except:
 		pass
 
@@ -1393,7 +1524,19 @@ def cyme_extract_5020(network_id,network):
 								glm.delete(object_name)
 				else:
 					raise Exception(f"CYME model has unsupported duplicate connections between {u} and {neighbor}")
-
+	# # check phase dismatch
+	# for name in list(glm.objects.keys()):
+	# 	data = glm.objects[name]
+	# 	target_node_name = None
+	# 	if "from" in data.keys() and "to" in data.keys():
+	# 		target_node_name = data["to"]
+	# 	elif "parent" in data.keys():
+	# 		target_node_name = data["parent"]
+	# 	if target_node_name:
+	# 		target_node = glm.objects[target_node_name]
+	# 		target_node_phases = target_node["phases"].replace("N","")
+	# 		if data["phases"].replace("N","") != target_node_phases:
+	# 			warning(f"phase dismatch: {target_node_name} has {target_node_phases} but {name} has {data['phases']}")
 	#
 	# Check conversion
 	#
