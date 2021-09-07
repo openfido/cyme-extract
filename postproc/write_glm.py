@@ -803,7 +803,7 @@ class GLM:
 				# "rating.summer.emergency" : "%.1f A" % nominal_rating,
 				# "rating.winter.emergency" : "%.1f A" % nominal_rating,
 				})
-		spacing_name = self.name("DEFAULT","line_spacing")
+		spacing_name = self.name("UL_DEFAULT","line_spacing")
 		if not spacing_name in self.objects.keys():
 			# only use default settings for now
 			self.object("line_spacing",spacing_name,{
