@@ -31,7 +31,6 @@ traceback_file = "/dev/stderr"
 DEFAULT_OUTPUT=["zip", "csv", "png", "glm", "json"]
 
 def main(inputs,outputs,options={}):
-	print(77777)
 	INPUTNAME = inputs[0]
 	OUTPUTNAME = outputs[0]
 	
