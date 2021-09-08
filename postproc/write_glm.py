@@ -208,7 +208,6 @@ warning_count = 0
 def warning(*args):
 	global warning_count
 	warning_count += 1
-	print("settings: ", settings)
 	if settings["GLM_WARNINGS"] == "stdout":
 		print(f"*** WARNING {warning_count} ***")
 		print(" ","\n  ".join(args))
