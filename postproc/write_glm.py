@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""OpenFIDO write_glm post-processor script
+"""OpenFIDO write_glm post-processor script (version: develop)
 Syntax:
 	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] 
 	[-h|--help] [-t|--cyme-tables] [-s|--single] [-n|--network ID]
@@ -844,7 +844,7 @@ class GLM:
 				r25 = float(conductor["R25"])
 				diameter = float(conductor["Diameter"])
 				nominal_rating = float(conductor["NominalRating"])
-				# should set up NONE conductor rating as non-zero value
+				# should set up NONE conductor rating and resistance as non-zero value
 				# cannot use modify.csv to change the ratings fior OC_NONE
 				if nominal_rating == 0:
 					nominal_rating = 1000				
