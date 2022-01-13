@@ -848,6 +848,8 @@ class GLM:
 				# cannot use modify.csv to change the ratings fior OC_NONE
 				if nominal_rating == 0:
 					nominal_rating = 1000				
+				if r25 == 0:
+					r25 = 0.00001
 				obj = self.object("overhead_line_conductor",conductor_name,{
 					"geometric_mean_radius" : "%.2f cm" % gmr,
 					"resistance" : "%.5f Ohm/km" % r25,
