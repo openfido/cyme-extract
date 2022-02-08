@@ -57,7 +57,7 @@ def main(inputs,outputs,options={}):
 		TABLES = settings["TABLES"]
 		EXTRACT = settings["EXTRACT"]
 		TIMEZONE = "UTC"
-		POSTPROCS = settings["POSTPROC"].tolist()
+		POSTPROCS = list(settings["POSTPROC"])
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	elif os.path.exists(f"{os.path.dirname(SRCDIR)}/config.csv"):
 		print(f"Use settings from 'config.csv' in parent directory:")
@@ -70,7 +70,7 @@ def main(inputs,outputs,options={}):
 		TABLES = settings["TABLES"]
 		EXTRACT = settings["EXTRACT"]
 		TIMEZONE = "UTC"
-		POSTPROCS = settings["POSTPROC"].tolist()
+		POSTPROCS = list(settings["POSTPROC"])
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	else:
 		print(f"No 'config.csv', using default settings:")
@@ -90,18 +90,19 @@ def main(inputs,outputs,options={}):
 		"inputs": INPUTTYPE,
 		"tables": TABLES,
 	}
-
+	flags = []
 	for option in options:
 		if "=" in option:
+			# Should we use command line to change converter configurations?
 			opt_defined = option.split("=")
-			if opt_defined[0] in PROCCONFIG.keys():
-				if opt_defined[0] == "postproc":
-					PROCCONFIG[opt_defined[0]] = [opt_defined[1]]
-				else:
-					try:
-						PROCCONFIG[opt_defined[0]] = opt_defined[1]
-					except:
-						raise Exception(f"option {option} unexpected")
+			if opt_defined[0].lower() in PROCCONFIG.keys():
+				try:
+					PROCCONFIG[opt_defined[0].lower()] = opt_defined[1]
+				except:
+					raise Exception(f"option {option} unexpected")
+		elif option[0] == '-':
+			flags.append(option)
+	flags = ' '.join(flags)
 
 	print(f"OpenFIDO config settings")
 	print(f"FILES = *.{PROCCONFIG['inputs']}")
@@ -109,7 +110,6 @@ def main(inputs,outputs,options={}):
 	print(f"EXTRACT = {PROCCONFIG['extract']}")
 	print(f"POSTPROC = {PROCCONFIG['postproc']}")
 	print(f"OUTPUTS = {PROCCONFIG['outputs']}")
-
 
 	result = os.popen(f"python3 {cache}/cyme-extract/postproc/write_glm.py --cyme-tables").read()
 	tables = result.split()
@@ -126,13 +126,16 @@ def main(inputs,outputs,options={}):
 
 	for n in range(len(PROCCONFIG['postproc'])):
 		process = PROCCONFIG['postproc'][n]
-		try:
-			os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR} -s")
-		except:
-			# raise Exception(f"{process} unavailable")
-			import traceback
-			print(f"ERROR [mdb-cyme2glm]: {traceback.print_exc()}")
-			sys.exit(15)
+		if process == process: 
+			try:
+				os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR} {flags}")
+			except:
+				# raise Exception(f"{process} unavailable")
+				import traceback
+				print(f"ERROR [mdb-cyme2glm]: {traceback.print_exc()}")
+				sys.exit(15)
+		else:
+			print(f'cannot run postprocessing function "{process}"')
 
 	print(f"Moving config fiels to {PROCCONFIG['output_folder']}")
 	file_names = os.listdir(PROCCONFIG['input_folder'])
@@ -142,5 +145,5 @@ def main(inputs,outputs,options={}):
 				if not os.path.exists(f"{PROCCONFIG['output_folder']}/{file_name}"):
 					shutil.copy2(os.path.join(PROCCONFIG['input_folder'], file_name), PROCCONFIG['output_folder'])
 
-	# os.system(f"cd {CSVDIR} ; zip -q {PROCCONFIG['output_folder']}/{CSVDIRNAME}_database.zip *.csv")
-	os.system(f"rm -rf {CSVDIR}")
+	os.system(f"cd {CSVDIR} ; zip -q -R {PROCCONFIG['output_folder']}/{CSVDIRNAME}_tables.zip *.csv ./*.csv")
+	# os.system(f"rm -rf {CSVDIR}")
