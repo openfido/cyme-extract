@@ -59,8 +59,7 @@ cyme_tables_required = [
 	"CYMANTIISLANDING","CYMARCFLASHNODE","CYMAUTOTAPCHANGINGEXTST","CYMBACKGROUNDMAP",
 	"CYMBREAKER","CYMBUSWAY","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
 	"CYMCTYPEFILTER","CYMDCLINK","CYMTRANSFORMERBYPHASE","CYMRECLOSER","CYMEQOVERHEADLINE",
-	"CYMSOURCE"]
-
+	"CYMSOURCE","CYMEQSHUNTCAPACITOR"]
 
 #
 # Argument parsing
@@ -239,7 +238,7 @@ default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
 cyme_phase_name = {0:"ABCN", 1:"A", 2:"B", 3:"C", 4:"AB", 5:"AC", 6:"BC", 7:"ABC"} # CYME phase number -> phase names
 glm_phase_code = {"A":1, "B":2, "C":4, "AB":3, "AC":5, "BC":6, "ABC":7} # GLM phase name -> phase number
 glm_phase_name = {0:"ABCN", 1:"A",2:"B",3:"AB",4:"C",5:"AC",6:"BC",7:"ABC"} # GLM phase number -> phase name
-cyme_phase_name_delta = {1:"ABN", 2:"BCN", 3:"ACN", 7:"ABCN"} # CYME phase number -> phase names for delta connection
+cyme_phase_name_delta = {1:"AB", 2:"BC", 3:"AC", 7:"ABC"} # CYME phase number -> phase names for delta connection
 #
 # Device type mapping
 #
@@ -424,6 +423,16 @@ def arrangeString(string):
 
 	return res
 
+def clean_phases(phases):
+	p = ''
+	if 'A' in phases:
+		p = p + 'A'
+	if 'B' in phases:
+		p = p + 'B'
+	if 'C' in phases:
+		p = p + 'C'
+	return p
+
 #
 # Load all the model tables (table names have an "s" appended)
 #
@@ -453,7 +462,7 @@ if equipment_file != None:
 		data = pd.read_csv(filename, dtype=str)
 		name = os.path.basename(filename)[0:-4].lower()
 		cyme_equipment_table[name] = data
-	# print(f'Equipment tables: {cyme_equipment_table.keys()}')
+	print(f'Equipment tables: {cyme_equipment_table.keys()}')
 
 #
 # store geodata for all node
@@ -1212,11 +1221,13 @@ class GLM:
 
 	# add a capacitor
 	def add_capacitor(self,capacitor_id,capacitor,version,**kwargs):
-		section_id = table_get(cyme_table["sectiondevice"],capacitor_id,"SectionId")
-		section = table_get(cyme_table["section"],section_id)
+		section_id = table_get(cyme_table["sectiondevice"],capacitor_id,"SectionId","DeviceNumber")
+		section = table_get(cyme_table["section"],section_id,None,"SectionId")
 		from_name = self.name(section["FromNodeId"],"node")
 		to_name = self.name(section["ToNodeId"],"node")
-
+		equipment_id = capacitor["EquipmentId"]
+		if 'eqtransformer' in cyme_equipment_table.keys():
+			equipment = table_get(cyme_equipment_table["eqshuntcapacitor"],equipment_id,None,"EquipmentId")
 		# if from_name not in self.objects.keys():
 		# 	# Definition for node "from_name" is missing
 		# 	device_dict = kwargs["node_info"]["Device_Dicts"]
@@ -1227,60 +1238,73 @@ class GLM:
 		if link_name in self.objects.keys(): # link is no longer needed
 			self.delete(link_name)
 		KVARA = float(capacitor["KVARA"])
+		if "SwitchedKVARA" in capacitor.keys(): # for NG MDB files
+			KVARA = KVARA + float(capacitor["SwitchedKVARA"])
 		KVARB = float(capacitor["KVARB"])
+		if "SwitchedKVARB" in capacitor.keys(): # for NG MDB files
+			KVARB = KVARB + float(capacitor["SwitchedKVARB"])
 		KVARC = float(capacitor["KVARC"])
+		if "SwitchedKVARC" in capacitor.keys(): # for NG MDB files
+			KVARC = KVARC + float(capacitor["SwitchedKVARC"])
+		if not KVARA + KVARB + KVARC > 0.0:
+			warning(f"{cyme_mdbname}@{network_id}: capacitor {capacitor_id} has zero capacitance for all phases.")
+			return
 		KVLN = float(capacitor["KVLN"])
+		ConnectionConfig = int(capacitor["ConnectionConfiguration"]) # 2 for delta and else for wye
 		capacitor_name = self.name(capacitor_id,"capacitor")
-		
-		try:
+		control = "MANUAL"
+		self.assume(capacitor_name,"control",control,f"capacitor {capacitor_id} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
+
+		if "Phase" in capacitor.keys():
 			phase = cyme_phase_name[int(capacitor["Phase"])]
-		except KeyError as err:
-			warning(f"capacitor {capacitor_id} does not specify {err}, phase will be specified based on capacitance data")
+		elif "ByPhase" in capacitor.keys():
+			phase = cyme_phase_name[int(capacitor["ByPhase"])]
+		else:
+			warning(f"{cyme_mdbname}@{network_id}: capacitor {capacitor_id} does not specify {err}, phase will be specified based on capacitance data")
 			phase = cyme_phase_name[capacitor_phase_cals(KVARA,KVARB,KVARC)]
 
-		if phase != "ABCN":
-			switchA = "CLOSED"
-			self.assume(capacitor_name,"switchA",switchA,f"capacitor {capacitor_id} does not specify switch A position, valid options are 'CLOSED' or 'OPEN'")
-			switchB = "CLOSED"
-			self.assume(capacitor_name,"switchB",switchB,f"capacitor {capacitor_id} does not specify switch B position, valid options are 'CLOSED' or 'OPEN'")
-			switchC = "CLOSED"
-			self.assume(capacitor_name,"switchC",switchC,f"capacitor {capacitor_id} does not specify switch C position, valid options are 'CLOSED' or 'OPEN'")
-			control = "MANUAL"
-			self.assume(capacitor_name,"control",control,f"capacitor {capacitor_id} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
-			return self.object("capacitor",capacitor_name,{
+		capacitor_dict = {
 				"parent" : from_name,
 				"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
-				"phases" : phase,
-				"phases_connected" : phase,
-				"capacitor_A" : f"{KVARA} kVA",
-				"capacitor_B" : f"{KVARB} kVA",
-				"capacitor_C" : f"{KVARC} kVA",
-				"switchA" : "CLOSED",
-				"switchB" : "CLOSED",
-				"switchC" : "CLOSED",
 				"control" : "MANUAL",
-				})
+		}
+		phase = ""
+		if KVARA > 0.0:
+			capacitor_dict["capacitor_A"] = f"{KVARA} kVA"
+			capacitor_dict["switchA"]  = "CLOSED"
+			if ConnectionConfig == 2:
+				phase = phase + "AB"
+			else:
+				phase = phase + "A"
 		else:
-			warning(f"capacitor {capacitor_id} does not specify capacitance for all phases, a small default value will be adopted to avoid error")
-			switchA = "OPEN"
-			self.assume(capacitor_name,"switchA",switchA,f"capacitor {capacitor_id} does not specify phase A capacitance, capacitor disconnected")
-			switchB = "OPEN"
-			self.assume(capacitor_name,"switchB",switchB,f"capacitor {capacitor_id} does not specify switch B capacitance, capacitor disconnected")
-			switchC = "OPEN"
-			self.assume(capacitor_name,"switchC",switchC,f"capacitor {capacitor_id} does not specify switch C capacitance, capacitor disconnected")
-			return self.object("capacitor",capacitor_name,{
-				"parent" : from_name,
-				"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
-				"phases" : "ABC",
-				"phases_connected" : "ABC",
-				"capacitor_A" : f"0.0001 kVA",
-				"capacitor_B" : f"0.0001 kVA",
-				"capacitor_C" : f"0.0001 kVA",
-				"switchA" : "OPEN",
-				"switchB" : "OPEN",
-				"switchC" : "OPEN",
-				"control" : "MANUAL",
-				})
+			capacitor_dict["capacitor_A"] = f"0 kVA"
+			capacitor_dict["switchA"]  = "OPEN"
+		if KVARB > 0.0:
+			capacitor_dict["capacitor_B"] = f"{KVARB} kVA"
+			if ConnectionConfig == 2:
+				phase = phase + "BC"
+			else:
+				phase = phase + "B"
+		else:
+			capacitor_dict["capacitor_B"] = f"0 kVA"
+			capacitor_dict["switchB"]  = "OPEN"
+		if KVARC > 0.0:
+			capacitor_dict["capacitor_C"] = f"{KVARC} kVA"
+			if ConnectionConfig == 2:
+				phase = phase + "AC"
+			else:
+				phase = phase + "C"
+		else:
+			capacitor_dict["capacitor_C"] = f"0 kVA"
+			capacitor_dict["switchC"]  = "OPEN"
+		phase = clean_phases(phase)
+		if ConnectionConfig == 0 and "N" not in phase:
+			phase = phase + "N"
+		elif ConnectionConfig > 0 and "N" in phase:
+			phase.replace("N","")
+		capacitor_dict["phases"] = phase
+		capacitor_dict["phases_connected"] = phase
+		return self.object("capacitor",capacitor_name,capacitor_dict)
 
 	# add a transformer
 	def add_transformer(self,transformer_id, transformer,version):
@@ -1339,7 +1363,7 @@ class GLM:
 		for n in range(1,4):
 			equipment_id = transformer[f"PhaseTransformerID{n}"]
 			if isinstance(equipment_id, str):
-				equipment = cyme_table["eqtransformer"].loc[equipment_id]
+				equipment = table_get(cyme_equipment_table["eqtransformer"],equipment_id,None,"EquipmentId")
 				NominalRatingKVA = float(equipment["NominalRatingKVA"])
 				PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
 				SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
@@ -1383,7 +1407,12 @@ class GLM:
 	# add a regulator
 	def add_regulator(self, regulator_id, regulator, version):
 		equipment_id = regulator["EquipmentId"]
-		equipment = cyme_table["eqregulator"].loc[equipment_id]
+		if 'eqregulator' in cyme_equipment_table.keys():
+			equipment = table_get(cyme_equipment_table["eqregulator"],equipment_id,None,"EquipmentId")
+		elif 'eqregulator' in cyme_table.keys():
+			equipment = table_get(cyme_table["eqregulator"],equipment_id,None,"EquipmentId")
+		else:
+			raise Exception(f"cannot find cyme table 'eqtransformer'.")
 		CTPrimaryRating = float(regulator["CTPrimaryRating"])
 		PTRatio = float(regulator["PTRatio"])
 		try:
@@ -1413,6 +1442,7 @@ class GLM:
 		time_delay = "30s"
 		band_center = "${GLM_NOMINAL_VOLTAGE}"
 		band_width = "%.1gV" % (BandWidth)
+
 		configuration_name = self.name([regulator_id,band_width,time_delay],"regulator_configuration")
 		self.assume(configuration_name,"connect_type",connect_type,f"regulator '{regulator_id}' does not specify connection type")
 		self.assume(configuration_name,"Control",Control,f"regulator '{regulator_id}' does not specify control type")
@@ -1426,7 +1456,9 @@ class GLM:
 			"time_delay" : time_delay,
 			"raise_taps" : "%.0f" % float(NumberOfTaps/2),
 			"lower_taps" : "%.0f" % float(NumberOfTaps/2),
-			"regulation" : "%.1f%%" % (BandWidth / (RatedKVLN*1000) * 100),
+			"current_transducer_ratio" : "%.0f" % CTPrimaryRating,
+			"power_transducer_ratio" : "%.0f" % PTRatio,
+			"regulation" : "%.4f%%" % (BandWidth / (RatedKVLN*1000) * 100),
 			"tap_pos_A" : "%.0f" % (TapPositionA),
 			"tap_pos_B" : "%.0f" % (TapPositionB),
 			"tap_pos_C" : "%.0f" % (TapPositionC),
@@ -1612,23 +1644,26 @@ def cyme_extract_5020(network_id,network):
 		cyme_id = fix_name(cyme_data['DeviceNumber'])
 		glm.add("load", cyme_id, cyme_data, version=5020, node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
 
-	# cyme_table["transformer"]
+	# transformer
 	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
-		glm.add("transformer", cyme_id, cyme_data, version=5020)
+		cyme_id = fix_name(cyme_data['DeviceNumber'])
+		glm.add("transformer", cyme_id, cyme_data, version=4700)
 
-	# cyme_table["transformerbyphase"]
+	# transformerbyphase
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["transformerbyphase"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("single_transformer", cyme_id, cyme_data, version=5020)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "single_transformer".')
 
-	# cyme_table["regulator"]
+	# regulator
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
-			glm.add("regulator", cyme_id, cyme_data, version=5020)
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("regulator", cyme_id, cyme_data, version=4700)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "regulator".')
 
 	# cyme_table["capacitor"]
 	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
@@ -1880,22 +1915,6 @@ def cyme_extract_4700(network_id,network):
 
 	# overhead lines
 	try:
-		for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
-			cyme_id = fix_name(cyme_data['DeviceNumber'])
-			glm.add("overhead_line_phase", cyme_id, cyme_data, version=4700)
-	except:
-		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "overheadbyphase".')
-
-	# unbalanced overhead lines
-	try:
-		for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
-			cyme_id = fix_name(cyme_data['DeviceNumber'])
-			glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=4700)
-	except:
-		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "overheadlineunbalanced".')
-
-	# overhead lines
-	try:
 		for cyme_id, cyme_data in table_find(cyme_table["overheadline"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("overhead_line", cyme_id, cyme_data, version=4700)
@@ -1919,6 +1938,23 @@ def cyme_extract_4700(network_id,network):
 	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
 		cyme_id = fix_name(cyme_data['DeviceNumber'])
 		glm.add("transformer", cyme_id, cyme_data, version=4700)
+
+	# regulator
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("regulator", cyme_id, cyme_data, version=4700)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "regulator".')
+
+	# capacitor
+	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
+		cyme_id = fix_name(cyme_data['DeviceNumber'])
+		glm.add("capacitor", cyme_id, cyme_data, version=4700,node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
+
+	# # switches
+	# for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
+	# 	glm.add("switch", cyme_id, cyme_data, version=5020)
 
 	glm.close()
 
