@@ -81,10 +81,9 @@ config_file = None
 equipment_file = None
 network_select = None
 single_file = False
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tsn:e:",["help","config=","input=","output=","data=","cyme-tables","single","network ID"])
-
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tsn:e:",["help","config=","input=","output=","data=","cyme-tables","single","network_ID=","equipment_file="])
 def help(exit_code=None,details=False):
-	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-t|--cyme-tables] [-c|--config CSV] [-e|--equipment DIR] [-s|--single] [-n|--network_ID ID]")
+	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-t|--cyme-tables] [-c|--config CSV] [-e|--equipment file_name] [-s|--single] [-n|--network_ID ID]")
 	if details:
 		print(globals()[__name__].__doc__)
 	if type(exit_code) is int:
@@ -628,7 +627,7 @@ class GLM:
 			self.objects[name] = obj
 		else:
 			obj = self.objects[name]
-		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["underground_line","switch","overhead_line","transformer","single_transformer","regulator"]:
+		if "class" in obj.keys() and obj["class"] == "link" and oclass in ["fuse","underground_line","switch","overhead_line","transformer","single_transformer","regulator"]:
 			# if obj is created based on a link object
 			if oclass == "single_transformer":
 				new_name = self.name(name+f"_{parameters['phases']}", "transformer") # new name
@@ -901,7 +900,6 @@ class GLM:
 		if length == 0.0:
 			length = 0.01
 		cable_conductor_id = line["CableId"]
-		cable_conductor_flag = None
 		conductor_name = self.name(cable_conductor_id,"underground_line_conductor")
 		if 'eqconductor' in cyme_equipment_table.keys():
 			cable_conductor = table_get(cyme_equipment_table['eqconductor'],cable_conductor_id,None,'EquipmentId')
@@ -1097,7 +1095,7 @@ class GLM:
 				switch_config[f'phase_{phase}_state'] = "CLOSED"
 		return self.object("switch", switch_name, switch_config,overwrite=False)
 
-	# add a breaker based on a link
+	# add a breaker based on a link and a switch object
 	def add_breaker(self,breaker_id,breaker,version):
 		breaker_name = self.name(breaker_id,"link")
 		phases = cyme_phase_name[int(breaker["ClosedPhase"])]
@@ -1109,7 +1107,7 @@ class GLM:
 				breaker_config[f'phase_{phase}_state'] = "CLOSED"
 		return self.object("switch", breaker_name, breaker_config,overwrite=False)
 
-	# add a recloser based on a link
+	# add a recloser based on a link and a switch object
 	def add_recloser(self,recloser_id,recloser,version):
 		recloser_name = self.name(recloser_id,"link")
 		phases = cyme_phase_name[int(recloser["ClosedPhase"])]
@@ -1124,14 +1122,21 @@ class GLM:
 	# add a fuse based on a link
 	def add_fuse(self,fuse_id,fuse,version):
 		fuse_name = self.name(fuse_id,"link")
-		phases = cyme_phase_name[int(fuse["ClosedPhase"])]
-		fuse_config = {
-		"operating_mode" : "BANKED"
+		equipment_id = fuse["EquipmentId"]
+		if 'eqfuse' in cyme_equipment_table.keys():
+			equipment = table_get(cyme_equipment_table['eqfuse'],equipment_id,None,'EquipmentId')
+			current_limit = equipment["FirstRatedCurrent"]
+		elif 'eqfuse' in cyme_table.keys():
+			equipment = table_get(cyme_table['eqfuse'],equipment_id,None,'EquipmentId')
+			current_limit = equipment["FirstRatedCurrent"]
+		else:
+			# use default settings
+			current_limit = "50000.0"
+		fuse_dict = {
+			"current_limit" : f"{current_limit} A",
+			"mean_replacement_time" : "3600.0",
 		}
-		for phase in phases:
-			if phase != "N":
-				fuse_config[f'phase_{phase}_state'] = "CLOSED"
-		return self.object("switch", fuse_name, fuse_config,overwrite=False)
+		return self.object("fuse", fuse_name, fuse_dict,overwrite=False)
 
 	# add a load
 	def add_load(self,load_id,load,version,**kwargs):
@@ -1266,37 +1271,38 @@ class GLM:
 		capacitor_dict = {
 				"parent" : from_name,
 				"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
-				"control" : "MANUAL",
 		}
 		phase = ""
 		if KVARA > 0.0:
-			capacitor_dict["capacitor_A"] = f"{KVARA} kVA"
-			capacitor_dict["switchA"]  = "CLOSED"
+			CAPACITOR_A = f"{KVARA} kVA"
+			SWITCH_A  = "CLOSED"
 			if ConnectionConfig == 2:
 				phase = phase + "AB"
 			else:
 				phase = phase + "A"
 		else:
-			capacitor_dict["capacitor_A"] = f"0 kVA"
-			capacitor_dict["switchA"]  = "OPEN"
+			CAPACITOR_A = f"0 kVA"
+			SWITCH_A  = "OPEN"
 		if KVARB > 0.0:
-			capacitor_dict["capacitor_B"] = f"{KVARB} kVA"
+			CAPACITOR_B = f"{KVARB} kVA"
+			SWITCH_B  = "CLOSED"
 			if ConnectionConfig == 2:
 				phase = phase + "BC"
 			else:
 				phase = phase + "B"
 		else:
-			capacitor_dict["capacitor_B"] = f"0 kVA"
-			capacitor_dict["switchB"]  = "OPEN"
+			CAPACITOR_B = f"0 kVA"
+			SWITCH_B  = "OPEN"
 		if KVARC > 0.0:
-			capacitor_dict["capacitor_C"] = f"{KVARC} kVA"
+			CAPACITOR_C = f"{KVARC} kVA"
+			SWITCH_C  = "CLOSED"
 			if ConnectionConfig == 2:
 				phase = phase + "AC"
 			else:
 				phase = phase + "C"
 		else:
-			capacitor_dict["capacitor_C"] = f"0 kVA"
-			capacitor_dict["switchC"]  = "OPEN"
+			CAPACITOR_C = f"0 kVA"
+			SWITCH_C  = "OPEN"
 		phase = clean_phases(phase)
 		if ConnectionConfig == 0 and "N" not in phase:
 			phase = phase + "N"
@@ -1304,6 +1310,13 @@ class GLM:
 			phase.replace("N","")
 		capacitor_dict["phases"] = phase
 		capacitor_dict["phases_connected"] = phase
+		capacitor_dict["capacitor_A"] = CAPACITOR_A
+		capacitor_dict["capacitor_B"] = CAPACITOR_B
+		capacitor_dict["capacitor_C"] = CAPACITOR_C
+		capacitor_dict["switchA"] = SWITCH_A
+		capacitor_dict["switchB"] = SWITCH_B
+		capacitor_dict["switchC"] = SWITCH_C
+		capacitor_dict["control"] = "MANUAL"
 		return self.object("capacitor",capacitor_name,capacitor_dict)
 
 	# add a transformer
@@ -1474,28 +1487,293 @@ class GLM:
 			"sense_node" : sense_node,
 			})
 
+	def node_checks(self, node_dict, node_links, device_dict, version): # check node objects
+		list_of_from = []
+		list_of_to = []
+		list_of_parent = []
+		for name in list(self.objects.keys()): # missing node: if a node object is used in link object but not been difined
+			data = self.objects[name]
+			if 'from' in data.keys():
+				if data["from"] not in self.objects.keys():
+					node_dict[data["from"]] = self.add_node(data["from"][3:], node_links, device_dict, version)
+				if data["from"] not in list_of_from:
+					list_of_from.append(data["from"])
+			if 'to' in data.keys():
+				if data["to"] not in self.objects.keys():
+					node_dict[data["to"]] = self.add_node(data["to"][3:], node_links, device_dict, version)
+				if data["to"] not in list_of_to:
+					list_of_to.append(data["to"])
+			if 'parent' in data.keys():
+				if data["parent"] not in self.objects.keys():
+					node_dict[data["parent"]] = self.add_node(data["parent"][3:], node_links, device_dict, version)
+				if data["parent"] not in list_of_parent:
+					list_of_parent.append(data["parent"])
+		for name in list(self.objects.keys()):
+			data = self.objects[name]
+			if "class" in data.keys() and data["class"] == "node":
+				if data["name"] not in list_of_from and data["name"] not in list_of_to and data["name"] not in list_of_parent: # islanded nodes
+					warning(f'{cyme_mdbname}@{network_id}: node {data["name"]}  is islanded.')
+					self.delete(name)
+				if "parent" in data.keys() and data["name"] == data["parent"]["name"]: # the object's parent is itself
+					warning(f"{cyme_mdbname}@{network_id}: {name}'parent is itself.")
+					self.delete(name)
+				if 'from' in data.keys() and 'to' in data.keys() and data["from"] == data["to"]: # section loops back to itself
+					warning(f'{cyme_mdbname}@{network_id}: section {name} loops back to itself.')
+					self.delete(name)
+		return node_dict
+
+	def link_checks(self):	# check link objects
+		done = False
+		while not done:
+			done = True
+			for name in list(self.objects.keys()):
+				try:
+					data = self.objects[name]
+					if "class" in data.keys() and data["class"] == "link": # link needs to be collapse
+						self.delete(name)
+						done = False
+						break
+					elif "class" in data.keys() and data["class"] in ["node","load"] and "parent" in data.keys(): # don't allow grandchild cyme_table["node"]
+						parent_name = data["parent"]
+						parent_data = self.objects[parent_name]
+						if "class" in parent_data.keys() and parent_data["class"] in ["node","load"] and "parent" in parent_data.keys():
+							grandparent = parent_data["parent"]
+							data["parent"] = grandparent
+							done = False
+							break
+				except Exception as exc:
+					warning(format_exception("link removal failed",name,self.objects[name]))
+					self.delete(name)
+					pass
+
+	def section_checks(self): # remove parallel section between two nodes
+		multi_g = nx.MultiGraph()
+		for name in list(self.objects.keys()):
+			try:
+				data = self.objects[name]
+				if "from" in data.keys() and "to" in data.keys():
+					if data["from"] not in multi_g:
+						multi_g.add_node(data["from"])
+					if data["to"] not in multi_g:
+						multi_g.add_node(data["to"])
+					multi_g.add_edge(data["from"],data["to"],edge_name=name,edge_phase=data["phases"].replace("N",""))
+			except Exception as exc:
+				warning(format_exception("connection removal failed",name,self.objects[name]))
+				self.delete(name)
+				pass
+		for u in multi_g.nodes():
+			for neighbor in multi_g.neighbors(u):
+				if multi_g.number_of_edges(u,neighbor)>1:
+					edge_data = {}
+					for edge_id in multi_g[u][neighbor].keys():
+						if multi_g[u][neighbor][edge_id]["edge_name"][0:2] not in edge_data.keys():
+							edge_data[multi_g[u][neighbor][edge_id]["edge_name"][0:2]] = edge_id
+						else:
+							warning(f"{cyme_mdbname}@{network_id}: multiple {multi_g[u][neighbor][edge_id]['edge_name'][0:2]} devices connected between {u} and {neighbor}.")
+							object_name = multi_g[u][neighbor][edge_id]["edge_name"]
+							if object_name in self.objects.keys():
+								self.delete(object_name)
+					# RG > TF > SW > FS > OL = UL
+					if "RG" in edge_data.keys(): # one of the multi-edges is regulator
+						if "OL" in edge_data.keys() or "UL" in edge_data.keys(): # add a node to handle both RG and OL/UL
+							name_node_added = multi_g[u][neighbor][edge_data["RG"]]["edge_name"]
+							self.object("node",self.name(name_node_added,"node"),{
+								"phases" : multi_g[u][neighbor][edge_data["RG"]]["edge_phase"] + "N",
+								"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
+								"bustype" : "PQ",
+								})
+							RG_object_name = multi_g[u][neighbor][edge_data["RG"]]["edge_name"]
+							self.objects[RG_object_name]["to"] = self.name(name_node_added,"node")
+							if "OL" in edge_data.keys():
+								line_object_name = multi_g[u][neighbor][edge_data["OL"]]["edge_name"]
+							else:
+								line_object_name = multi_g[u][neighbor][edge_data["UL"]]["edge_name"]
+							self.objects[line_object_name]["from"] = self.name(name_node_added,"node")
+						for key in edge_data.keys():
+							if key != "RG" and key != "OL" and key != "UL":
+								object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+								if object_name in self.objects.keys():
+									self.delete(object_name)
+					elif "TF" in edge_data.keys(): # one of the multi-edges is transformer
+						if "OL" in edge_data.keys() or "UL" in edge_data.keys(): # add a node to handle both RG and OL/UL
+							name_node_added = multi_g[u][neighbor][edge_data["TF"]]["edge_name"]
+							self.object("node",self.name(name_node_added,"node"),{
+								"phases" : multi_g[u][neighbor][edge_data["TF"]]["edge_phase"] + "N",
+								"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
+								"bustype" : "PQ",
+								})
+							TF_object_name = multi_g[u][neighbor][edge_data["TF"]]["edge_name"]
+							self.objects[TF_object_name]["to"] = self.name(name_node_added,"node")
+							if "OL" in edge_data.keys():
+								line_object_name = multi_g[u][neighbor][edge_data["OL"]]["edge_name"]
+							else:
+								line_object_name = multi_g[u][neighbor][edge_data["UL"]]["edge_name"]
+							self.objects[line_object_name]["from"] = self.name(name_node_added,"node")
+						for key in edge_data.keys():
+							if key != "TF" and key != "OL" and key != "UL":
+								object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+								if object_name in self.objects.keys():
+									self.delete(object_name)
+					elif "SW" in edge_data.keys():
+						# one of the multi-edges is switch
+						if "OL" in edge_data.keys() or "UL" in edge_data.keys(): # add a node to handle both RG and OL/UL
+							name_node_added = multi_g[u][neighbor][edge_data["SW"]]["edge_name"]
+							self.object("node",self.name(name_node_added,"node"),{
+								"phases" : multi_g[u][neighbor][edge_data["SW"]]["edge_phase"] + "N",
+								"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
+								"bustype" : "PQ",
+								})
+							SW_object_name = multi_g[u][neighbor][edge_data["SW"]]["edge_name"]
+							self.objects[SW_object_name]["to"] = self.name(name_node_added,"node")
+							if "OL" in edge_data.keys():
+								line_object_name = multi_g[u][neighbor][edge_data["OL"]]["edge_name"]
+							else:
+								line_object_name = multi_g[u][neighbor][edge_data["UL"]]["edge_name"]
+							self.objects[line_object_name]["from"] = self.name(name_node_added,"node")
+						for key in edge_data.keys():
+							if key != "SW" and key != "OL" and key != "UL":
+								object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+								if object_name in self.objects.keys():
+									self.delete(object_name)
+					elif "FS" in edge_data.keys():
+						# one of the multi-edges is fuse
+						if "OL" in edge_data.keys() or "UL" in edge_data.keys(): # add a node to handle both RG and OL/UL
+							name_node_added = multi_g[u][neighbor][edge_data["FS"]]["edge_name"]
+							self.object("node",self.name(name_node_added,"node"),{
+								"phases" : multi_g[u][neighbor][edge_data["FS"]]["edge_phase"] + "N",
+								"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
+								"bustype" : "PQ",
+								})
+							FS_object_name = multi_g[u][neighbor][edge_data["FS"]]["edge_name"]
+							self.objects[FS_object_name]["to"] = self.name(name_node_added,"node")
+							if "OL" in edge_data.keys():
+								line_object_name = multi_g[u][neighbor][edge_data["OL"]]["edge_name"]
+							else:
+								line_object_name = multi_g[u][neighbor][edge_data["UL"]]["edge_name"]
+							self.objects[line_object_name]["from"] = self.name(name_node_added,"node")
+						for key in edge_data.keys():
+							if key != "FS" and key != "OL" and key != "UL":
+								object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+								if object_name in self.objects.keys():
+									self.delete(object_name)
+					else:
+						for key in edge_data.keys():
+							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
+							print(self.objects[object_name])
+						raise Exception(f"CYME model has unsupported duplicate connections between {u} and {neighbor}")
+
+	def phase_checks(self): # check phase dismatch
+		for name in list(self.objects.keys()):
+			data = self.objects[name]
+			target_node_name = None
+			target_device_name = None
+			if "from" in data.keys() and "to" in data.keys():
+				target_device_name = data["name"]
+			elif "parent" in data.keys():
+				target_node_name = data["parent"]
+			if target_device_name:
+				if len(self.objects[data["from"]]["phases"]) < len(self.objects[data["to"]]["phases"]):
+					for phase in self.objects[data["from"]]["phases"].replace("N",""):
+						if phase not in self.objects[data["to"]]["phases"]:
+							warning(f"{cyme_mdbname}@{network_id} phase dismatch: {data['from']} has {self.objects[data['from']]['phases']} \
+								but {data['to']} has {self.objects[data['to']]['phases']}")
+							break
+				else:
+					for phase in self.objects[data["to"]]["phases"].replace("N",""):
+						if phase not in self.objects[data["from"]]["phases"]:
+							warning(f"{cyme_mdbname}@{network_id} phase dismatch: {data['from']} has {self.objects[data['from']]['phases']} \
+								but {data['to']} has {self.objects[data['to']]['phases']}")
+							break
+				for phase in data["phases"].replace("N",""):
+					if phase not in self.objects[data["from"]]["phases"] and phase not in self.objects[data["to"]]["phases"]:
+						warning(f"{cyme_mdbname}@{network_id} phase dismatch: section {data['name']} has {data['phases']} \
+							but {data['to']} has {self.objects[data['to']]['phases']} and {data['from']} has {self.objects[data['from']]['phases']}")
+						break
+			if target_node_name:
+				target_node = self.objects[target_node_name]
+				target_node_phases = target_node["phases"].replace("N","")
+				for phase in data["phases"].replace("N",""):
+					if phase not in target_node_phases:
+						warning(f"{cyme_mdbname}@{network_id} phase dismatch: parent {target_node_name} has {target_node_phases} but child {name} has {data['phases']}")
+
+	def voltage_checks(self, nominal_voltage): # Check transformer primary/secondary voltage
+		for name, data in self.objects.items():
+			if "class" in data.keys() and (data["class"] == "transformer" or data["class"] == "single_transformer"):
+				config_name = data["configuration"]
+				cinfig_data = self.objects[config_name]
+				from_node_name = data["from"]
+				to_node_name = data["to"]
+				from_node_voltage = self.objects[from_node_name]["nominal_voltage"]
+				to_node_voltage = self.objects[to_node_name]["nominal_voltage"]
+				primary_voltage = cinfig_data["primary_voltage"]
+				secondary_voltage = cinfig_data["secondary_voltage"]
+				if from_node_voltage == "${GLM_NOMINAL_VOLTAGE}" and primary_voltage.replace("kV","") != nominal_voltage:
+					warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has primary voltage as {primary_voltage} but node {from_node_name} nominal voltage is {nominal_voltage}kV.")
+				elif from_node_voltage != "${GLM_NOMINAL_VOLTAGE}" and float(primary_voltage.replace("kV","")) != float(from_node_voltage.replace("kV","")):
+					warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has primary voltage as {primary_voltage} but node {from_node_name} nominal voltage is {from_node_voltage}.")
+				if to_node_voltage == "${GLM_NOMINAL_VOLTAGE}" and secondary_voltage.replace("kV","") != nominal_voltage:
+					warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has secondary voltage as {secondary_voltage} but node {to_node_name} nominal voltage is {nominal_voltage}kV.")
+				elif to_node_voltage != "${GLM_NOMINAL_VOLTAGE}" and float(secondary_voltage.replace("kV","")) != float(to_node_voltage.replace("kV","")):
+					warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has primary voltage as {secondary_voltage} but node {to_node_name} nominal voltage is {to_node_voltage}.")
+			elif "parent" in data.keys():
+				parent_name = data["parent"]
+				parent_data = self.objects[parent_name]
+				if data["nominal_voltage"] != parent_data["nominal_voltage"]:
+					warning(f"{cyme_mdbname}@{network_id} voltage mismatch: parent {parent_name} has voltage as {parent_data["nominal_voltage"]} but child {name} has {data["nominal_voltage"]}.")
+
+	def object_checks(self): # Check conversion
+		for name, data in self.objects.items():
+			if not "name" in data.keys():
+				warning("%s: object does not have a name, object data [%s]" % (self.filename,data))
+			elif not "class" in data.keys():
+				warning("%s: object '%s' does not have a class" % (self.filename,data["name"]))
+			elif data["class"] in ["link","powerflow_object","line"]:
+				print(self.objects[name])
+				warning("%s: object '%s' uses abstract-only class '%s'" % (self.filename,data["name"],data["class"]))
+
 def is_float(element):
 	try:
 		float(element)
 		return True
 	except ValueError:
 		return False
+
+def fix_unit(string,output_unit):
+	if output_unit == "V":
+		scale = 1.0
+	elif output_unit == "kV":
+		scale = 0.001
+	else:
+		raise Exception(f"cannot convert string {string} with unit {output_unit}.")
+	if "kV" in string:
+		scale = scale  * 1000.0
+		value_string = string.replace("kV","")
+	elif "V" in string:
+		scale = scale  * 1.0
+		value_string = string.replace("V","")
+	try:
+		value = float(value_string) * scale
+		return "%.4g" % value
+	except:
+		raise Exception(f"cannot convert string {string}.")
+
 def feeder_voltage_find(network_id):
 	## set up feeder nominal voltage
-	feeder_kVLN = 0.0
+	feeder_kVLN = None
 	if os.path.exists(os.path.join(input_folder,'feeder_map_2020.csv')): ## feeder_map_2020.csv should be provided from NG
 		df_feeder_master = pd.read_csv(os.path.join(input_folder,'feeder_map_2020.csv'))
 		df_feeder_select = df_feeder_master[df_feeder_master['GIS CDF'] == network_id].copy()
-	for index, source in cyme_table["source"].iterrows():
-		if source['NetworkId'] == network_id:
-			if 'DesiredVoltage' in source.keys() and is_float(source['DesiredVoltage']) and float(source['DesiredVoltage'])>0:
-				feeder_kVLN = round(float(source['DesiredVoltage'])/sqrt(3),3)
-			elif 'EquipmentId' in source.keys() and is_float(source['EquipmentId'].split('_')[-1]) and float(source['EquipmentId'].split('_')[-1])>0:
-				feeder_kVLN = round(float(source['EquipmentId'].split('_')[-1])/sqrt(3),3)
-			elif os.path.exists(os.path.join(input_folder,'feeder_map_2020.csv')) and is_float(df_feeder_select['APS Voltage (kV)']) and float(df_feeder_select['APS Voltage (kV)'])>0:
-				feeder_kVLN = round(float(df_feeder_select['APS Voltage (kV)'].iloc[0])/sqrt(3),3)
-			break
-	return feeder_kVLN
+	if "source" in cyme_table.keys():
+		for index, source in cyme_table["source"].iterrows():
+			if source['NetworkId'] == network_id:
+				if 'DesiredVoltage' in source.keys() and is_float(source['DesiredVoltage']) and float(source['DesiredVoltage'])>0:
+					feeder_kVLN = float(source['DesiredVoltage'])/sqrt(3)
+				elif 'EquipmentId' in source.keys() and is_float(source['EquipmentId'].split('_')[-1]) and float(source['EquipmentId'].split('_')[-1])>0:
+					feeder_kVLN = float(source['EquipmentId'].split('_')[-1])/sqrt(3)
+				elif os.path.exists(os.path.join(input_folder,'feeder_map_2020.csv')) and is_float(df_feeder_select['APS Voltage (kV)']) and float(df_feeder_select['APS Voltage (kV)'])>0:
+					feeder_kVLN = float(df_feeder_select['APS Voltage (kV)'].iloc[0])/sqrt(3)
+				break
+	return "%.4g" % feeder_kVLN
 
 #
 # CYME 5 MDB extractor
@@ -1551,11 +1829,14 @@ def cyme_extract_5020(network_id,network):
 	if type(define) is list and len(define) > 1:
 		glm.define(define[0].strip(),"=".join(define[1:]).strip())
 	feeder_kVLN = feeder_voltage_find(network_id)
-	if feeder_kVLN > 0:
-		settings["GLM_NOMINAL_VOLTAGE"] = str(feeder_kVLN)+ ' kV'
+	if feeder_kVLN is not None:
+		glm.comment("GLM_NOMINAL_VOLTAGE found in network MDB is used")
+		settings["GLM_NOMINAL_VOLTAGE"] = feeder_kVLN + ' kV'
 		glm.define("GLM_NOMINAL_VOLTAGE",settings["GLM_NOMINAL_VOLTAGE"])
 	elif settings["GLM_NOMINAL_VOLTAGE"]:
+		glm.comment("GLM_NOMINAL_VOLTAGE found in config.csv is used")
 		glm.define("GLM_NOMINAL_VOLTAGE",settings["GLM_NOMINAL_VOLTAGE"])
+		feeder_kVLN = fix_unit(settings["GLM_NOMINAL_VOLTAGE"], "kV")
 	else:
 		if settings["GLM_INCLUDE"]: # cannot verify setting in GLM_INCLUDE until run in gridlabd
 			glm.ifndef("GLM_NOMINAL_VOLTAGE",lambda:glm.error("GLM_NOMINAL_VOLTAGE must be defined in either 'config.csv' or the GLM_INCLUDE file"))
@@ -1577,7 +1858,7 @@ def cyme_extract_5020(network_id,network):
 	device_dict = {}
 	node_links = {}
 
-	# cyme_table["node"] graph data
+	# node graph data
 	if "nodetag" in cyme_table.keys():
 		for index, node in table_find(cyme_table["nodetag"],NetworkId=network_id).iterrows():
 			node_id = fix_name(node['NodeId'])
@@ -1613,7 +1894,7 @@ def cyme_extract_5020(network_id,network):
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("overhead_line_phase", cyme_id, cyme_data, version=5020)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "overheadbyphase".')
 
 	# unbalanced overhead lines
 	try:
@@ -1621,7 +1902,7 @@ def cyme_extract_5020(network_id,network):
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "overheadlineunbalanced".')
 
 	# overhead lines
 	try:
@@ -1629,7 +1910,7 @@ def cyme_extract_5020(network_id,network):
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("overhead_line", cyme_id, cyme_data, version=5020)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "overheadline".')
 
 	# underground lines
 	try:
@@ -1637,17 +1918,22 @@ def cyme_extract_5020(network_id,network):
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("underground_line", cyme_id, cyme_data, version=5020)
 	except:
-		pass
-
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "undergroundline".')
 	# load
-	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
-		cyme_id = fix_name(cyme_data['DeviceNumber'])
-		glm.add("load", cyme_id, cyme_data, version=5020, node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("load", cyme_id, cyme_data, version=5020, node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "customerload".')
 
 	# transformer
-	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
-		cyme_id = fix_name(cyme_data['DeviceNumber'])
-		glm.add("transformer", cyme_id, cyme_data, version=4700)
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("transformer", cyme_id, cyme_data, version=5020)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "transformer".')
 
 	# transformerbyphase
 	try:
@@ -1655,154 +1941,67 @@ def cyme_extract_5020(network_id,network):
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("single_transformer", cyme_id, cyme_data, version=5020)
 	except:
-		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "single_transformer".')
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "transformerbyphase".')
 
 	# regulator
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
-			glm.add("regulator", cyme_id, cyme_data, version=4700)
+			glm.add("regulator", cyme_id, cyme_data, version=5020)
 	except:
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "regulator".')
 
-	# cyme_table["capacitor"]
-	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
-		glm.add("capacitor", cyme_id, cyme_data, version=5020,node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
+	# capacitor
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("capacitor", cyme_id, cyme_data, version=5020,node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "shuntcapacitor".')
 
 	# switches
-	for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
-		glm.add("switch", cyme_id, cyme_data, version=5020)
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("switch", cyme_id, cyme_data, version=4700)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "switch".')
 
 	# breaker
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["breaker"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("breaker", cyme_id, cyme_data, version=5020)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "breaker".')
 
 	# recloser
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["recloser"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("recloser", cyme_id, cyme_data, version=5020)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "recloser".')
 
 	# fuse
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["fuse"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
 			glm.add("fuse", cyme_id, cyme_data, version=5020)
 	except:
-		pass
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "fuse".')
 
-	# check nade objects
-	for name in list(glm.objects.keys()):
-		data = glm.objects[name]
-		if 'from' in data.keys() and data["from"] not in glm.objects.keys():
-			node_dict[data["from"]] = glm.add_node(data["from"][3:], node_links, device_dict, version=5020)
-		elif 'to' in data.keys() and data["to"] not in glm.objects.keys():
-			node_dict[data["to"]] = glm.add_node(data["to"][3:], node_links, device_dict, version=5020)
-		elif 'parent' in data.keys() and data["parent"] not in glm.objects.keys():
-			node_dict[data["parent"]] = glm.add_node(data["parent"][3:], node_links, device_dict, version=5020)
+	# network senity checks
+	node_dict = glm.node_checks(node_dict,node_links,device_dict,version=5200)
+	glm.link_checks()
+	glm.section_checks()
+	glm.phase_checks()
+	glm.object_checks()
+	glm.trans_voltage_checks(feeder_kVLN)
 
-	# collapse links
-	done = False
-	while not done:
-		done = True
-		for name in list(glm.objects.keys()):
-			try:
-				data = glm.objects[name]
-				if "class" in data.keys() and data["class"] == "link": # needs to be collapse
-					from_node = data["from"]
-					to_node = data["to"]
-					# while "parent" in glm.objects[to_node].keys() and glm.objects[glm.objects[to_node]["parent"]]["class"] == "node" \
-					#   and to_node != glm.objects[to_node]["parent"]: # don't allow grandchild cyme_table["node"]
-					# 	to_node = glm.objects[to_node]["parent"]
-					# glm.objects[to_node]["parent"] = from_node
-					glm.delete(name)
-					done = False
-					break
-				elif "class" in data.keys() and data["class"] in ["node","load"] and "parent" in data.keys():
-					parent_name = data["parent"]
-					parent_data = glm.objects[parent_name]
-					if "class" in parent_data.keys() and parent_data["class"] in ["node","load"] and "parent" in parent_data.keys():
-						grandparent = parent_data["parent"]
-						data["parent"] = grandparent
-						done = False
-						break
-			except Exception as exc:
-				warning(format_exception("link removal failed",name,glm.objects[name]))
-				glm.delete(name)
-				pass
+	
+	
 
-	# remove extra connections between two node
-	multi_g = nx.MultiGraph()
-	for name in list(glm.objects.keys()):
-		try:
-			data = glm.objects[name]
-			if "from" in data.keys() and "to" in data.keys():
-				if data["from"] not in multi_g:
-					multi_g.add_node(data["from"])
-				if data["to"] not in multi_g:
-					multi_g.add_node(data["to"])
-				multi_g.add_edge(data["from"],data["to"],edge_name=name)
-		except Exception as exc:
-			warning(format_exception("connection removal failed",name,glm.objects[name]))
-			glm.delete(name)
-			pass
-	for u in multi_g.nodes():
-		for neighbor in multi_g.neighbors(u):
-			if multi_g.number_of_edges(u,neighbor)>1:
-				edge_data = {}
-				for edge_id in multi_g[u][neighbor].keys():
-					edge_data[multi_g[u][neighbor][edge_id]["edge_name"][0:2]] = edge_id
-				# RG > TF > SW > OL
-				if "RG" in edge_data.keys():
-					# one of the multi-edges is regulator
-					for key in edge_data.keys():
-						if key != "RG":
-							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
-							if object_name in glm.objects.keys():
-								glm.delete(object_name)
-				elif "TF" in edge_data.keys():
-					# one of the multi-edges is transformer
-					for key in edge_data.keys():
-						if key != "TF":
-							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
-							if object_name in glm.objects.keys():
-								glm.delete(object_name)
-				elif "SW" in edge_data.keys():
-					# one of the multi-edges is switch
-					for key in edge_data.keys():
-						if key != "SW":
-							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
-							if object_name in glm.objects.keys():
-								glm.delete(object_name)
-				else:
-					raise Exception(f"CYME model has unsupported duplicate connections between {u} and {neighbor}")
-	# # check phase dismatch
-	# for name in list(glm.objects.keys()):
-	# 	data = glm.objects[name]
-	# 	target_node_name = None
-	# 	if "from" in data.keys() and "to" in data.keys():
-	# 		target_node_name = data["to"]
-	# 	elif "parent" in data.keys():
-	# 		target_node_name = data["parent"]
-	# 	if target_node_name:
-	# 		target_node = glm.objects[target_node_name]
-	# 		target_node_phases = target_node["phases"].replace("N","")
-	# 		if data["phases"].replace("N","") != target_node_phases:
-	# 			warning(f"phase dismatch: {target_node_name} has {target_node_phases} but {name} has {data['phases']}")
-	#
-	# Check conversion
-	#
-	for name, data in glm.objects.items():
-		if not "name" in data.keys():
-			warning("%s: object does not have a name, object data [%s]" % (glm.filename,data))
-		elif not "class" in data.keys():
-			warning("%s: object '%s' does not have a class" % (glm.filename,data["name"]))
-		elif data["class"] in ["link","powerflow_object","line"]:
-			print(glm.objects[name])
-			warning("%s: object '%s' uses abstract-only class '%s'" % (glm.filename,data["name"],data["class"]))
 
 	glm.close()
 
@@ -1854,16 +2053,19 @@ def cyme_extract_4700(network_id,network):
 
 	# settings from config.csv
 	glm.blank()
-	glm.comment("","Settings from 'config.csv'","")
+	glm.comment("","Settings from 'config.csv' and network MDB file","")
 	define = settings["GLM_DEFINE"].split("=")
 	if type(define) is list and len(define) > 1:
 		glm.define(define[0].strip(),"=".join(define[1:]).strip())
 	feeder_kVLN = feeder_voltage_find(network_id)
-	if feeder_kVLN > 0:
-		settings["GLM_NOMINAL_VOLTAGE"] = str(feeder_kVLN)+ ' kV'
+	if feeder_kVLN is not None:
+		glm.comment("GLM_NOMINAL_VOLTAGE found in network MDB is used")
+		settings["GLM_NOMINAL_VOLTAGE"] = feeder_kVLN + ' kV'
 		glm.define("GLM_NOMINAL_VOLTAGE",settings["GLM_NOMINAL_VOLTAGE"])
 	elif settings["GLM_NOMINAL_VOLTAGE"]:
+		glm.comment("GLM_NOMINAL_VOLTAGE found in config.csv is used")
 		glm.define("GLM_NOMINAL_VOLTAGE",settings["GLM_NOMINAL_VOLTAGE"])
+		feeder_kVLN = fix_unit(settings["GLM_NOMINAL_VOLTAGE"], "kV")
 	else:
 		if settings["GLM_INCLUDE"]: # cannot verify setting in GLM_INCLUDE until run in gridlabd
 			glm.ifndef("GLM_NOMINAL_VOLTAGE",lambda:glm.error("GLM_NOMINAL_VOLTAGE must be defined in either 'config.csv' or the GLM_INCLUDE file"))
@@ -1929,15 +2131,21 @@ def cyme_extract_4700(network_id,network):
 	except:
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "undergroundline".')
 
-	# # load
-	# for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
-	# 	cyme_id = fix_name(cyme_data['DeviceNumber'])
-	# 	glm.add("load", cyme_id, cyme_data, version=4700, node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
+	# load
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("load", cyme_id, cyme_data, version=4700, node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "customerload".')
 
 	# transformer
-	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
-		cyme_id = fix_name(cyme_data['DeviceNumber'])
-		glm.add("transformer", cyme_id, cyme_data, version=4700)
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("transformer", cyme_id, cyme_data, version=4700)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "transformer".')
 
 	# regulator
 	try:
@@ -1952,9 +2160,46 @@ def cyme_extract_4700(network_id,network):
 		cyme_id = fix_name(cyme_data['DeviceNumber'])
 		glm.add("capacitor", cyme_id, cyme_data, version=4700,node_info={"Node_Links":node_links, "Device_Dicts": device_dict})
 
-	# # switches
-	# for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
-	# 	glm.add("switch", cyme_id, cyme_data, version=5020)
+	# switches
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("switch", cyme_id, cyme_data, version=4700)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "switch".')
+
+	# breaker
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["breaker"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("breaker", cyme_id, cyme_data, version=4700)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "breaker".')
+
+	# recloser
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["recloser"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("recloser", cyme_id, cyme_data, version=4700)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "recloser".')
+
+	# fuse
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["fuse"],NetworkId=network_id).iterrows():
+			cyme_id = fix_name(cyme_data['DeviceNumber'])
+			glm.add("fuse", cyme_id, cyme_data, version=4700)
+	except:
+		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "fuse".')
+
+	# network senity checks
+	node_dict = glm.node_checks(node_dict,node_links,device_dict,version=4700)
+	glm.link_checks()
+	glm.section_checks()
+	glm.phase_checks()
+	glm.trans_voltage_checks(feeder_kVLN)
+	glm.object_checks()
+
 
 	glm.close()
 
