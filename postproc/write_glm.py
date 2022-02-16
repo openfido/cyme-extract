@@ -1719,7 +1719,7 @@ class GLM:
 				parent_name = data["parent"]
 				parent_data = self.objects[parent_name]
 				if data["nominal_voltage"] != parent_data["nominal_voltage"]:
-					warning(f"{cyme_mdbname}@{network_id} voltage mismatch: parent {parent_name} has voltage as {parent_data["nominal_voltage"]} but child {name} has {data["nominal_voltage"]}.")
+					warning(f"{cyme_mdbname}@{network_id} voltage mismatch: parent {parent_name} has voltage as {parent_data['nominal_voltage']} but child {name} has {data['nominal_voltage']}.")
 
 	def object_checks(self): # Check conversion
 		for name, data in self.objects.items():
@@ -1997,7 +1997,7 @@ def cyme_extract_5020(network_id,network):
 	glm.section_checks()
 	glm.phase_checks()
 	glm.object_checks()
-	glm.trans_voltage_checks(feeder_kVLN)
+	glm.voltage_checks(feeder_kVLN)
 
 	
 	
@@ -2197,7 +2197,7 @@ def cyme_extract_4700(network_id,network):
 	glm.link_checks()
 	glm.section_checks()
 	glm.phase_checks()
-	glm.trans_voltage_checks(feeder_kVLN)
+	glm.voltage_checks(feeder_kVLN)
 	glm.object_checks()
 
 
