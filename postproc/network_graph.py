@@ -43,18 +43,31 @@ config = {"input":"/","output":"/","from":[],"type":[]}
 input_folder = "."
 output_folder = ".."
 config_file = "config.csv"
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tsn:",["help","config=","input=","output=","data=","cyme-tables","single","network ID"])
-
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file="])
 def help(exit_code=None,details=False):
-	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-c|--config CSV] [-h|--help] [-t|--cyme-tables]")
+	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-t|--cyme-tables] [-c|--config CSV] [-e|--equipment file_name] [-n|--network_ID ID]")
 	if details:
 		print(globals()[__name__].__doc__)
 	if type(exit_code) is int:
 		exit(exit_code)
 
+error_count = 0
+def error(*args):
+	global error_count
+	error_count += 1
+	if settings["GLM_ERRORS"] == "stdout":
+		print(f"*** ERROR {error_count} ***")
+		print(" ","\n  ".join(args))
+	elif settings["GLM_ERRORS"] == "stderr":
+		print(f"*** ERROR {error_count} ***",file=sys.stderr)
+		print(" ","\n  ".join(args),file=sys.stderr)
+	else:
+		raise Exception("\n".join(args))
+
 if not opts : 
 	help(1)
 
+network_select = None
 for opt, arg in opts:
 	if opt in ("-h","--help"):
 		help(0,details=True)
@@ -72,7 +85,10 @@ for opt, arg in opts:
 		output_folder = arg.strip()
 	elif opt in ("-d", "--data"):
 		data_folder = arg.strip()
-	elif opt in ("-s", "--single", "-n", "--network ID"):
+	elif opt in ("-n", "--network_ID"):
+		# only extract the selected network
+		network_select = arg.split(" ")
+	elif opt in ("-s", "--single","-e", "--equipment"):
 		pass
 	else:
 		error(f"{opt}={arg} is not a valid option");
@@ -87,7 +103,7 @@ if data_folder == None:
 config = pd.DataFrame({
 	"PNG_FIGSIZE" : ["20x10"],
 	"PNG_FONTSIZE" : ["1"],
-	"PNG_FIGNAME" : ["network_graph_1.png"],
+	"PNG_FIGNAME" : ["network_graph.png"],
 	"PNG_NODESIZE" : ["0.1"],
 	"PNG_NODECOLOR" : ["byphase"],
 	"PNG_LAYOUT" : ["nodexy"],
@@ -116,83 +132,93 @@ nodes = pd.read_csv(f"{data_folder}/node.csv")
 section = pd.read_csv(f"{data_folder}/section.csv")
 
 # generate the graph
-graph = nx.Graph()
-labels = {}
-for index, node in nodes.iterrows():
-	labels[node["NodeId"]] = f"{node['NodeId']}\n"
-	if settings["PNG_LAYOUT"] == "nodexy":
-		graph.add_node(node["NodeId"],pos=(node["X"],node["Y"]))
-	elif settings["PNG_LAYOUT"] == "multipartite":
-		if settings["PNG_ROOTNODE"] == "":
-			raise Exception("cannot use LAYOUT='multipartite' layout without specifying value for ROOTNODE")
-		graph.add_node(node["NodeId"])
+if network_select is None:
+	network_list = ["ALL"]
+else:
+	network_list = network_select
+for network_id in network_list:
+	graph = nx.Graph()
+	labels = {}
+	for index, node in nodes.iterrows():
+		if network_select is None or network_id == node["NetworkId"]:
+			labels[node["NodeId"]] = f"{node['NodeId']}\n"
+			if settings["PNG_LAYOUT"] == "nodexy":
+				graph.add_node(node["NodeId"],pos=(node["X"],node["Y"]))
+			elif settings["PNG_LAYOUT"] == "multipartite":
+				if settings["PNG_ROOTNODE"] == "":
+					raise Exception("cannot use LAYOUT='multipartite' layout without specifying value for ROOTNODE")
+				graph.add_node(node["NodeId"])
+			else:
+				graph.add_node(node["NodeId"])
+
+	color = ["white","#cc0000","#00cc00","#0000cc","#aaaa00","#aa00aa","#00aaaa","#999999"]
+	weight = [0,1,1,1,2,2,2,3]
+	for index, edge in section.iterrows():
+		if network_select is None or network_id == edge["NetworkId"]:
+			phase = edge["Phase"]
+			fnode = edge["FromNodeId"]
+			tnode = edge["ToNodeId"]
+			graph.add_edge(str(fnode),str(tnode),color=color[phase],weight=weight[phase],phase=phase)
+	if not settings["PNG_NODECOLOR"] or settings["PNG_NODECOLOR"] == "byphase":
+		node_colors = {}
+		for node in graph.nodes:
+			phase = 0
+			for edge in graph.edges(node):
+				phase |= graph.edges[edge]["phase"]
+			node_colors[node] = {"color":color[phase]}
+		nx.set_node_attributes(graph,node_colors)
+		node_colors = nx.get_node_attributes(graph,"color").values()
 	else:
-		graph.add_node(node["NodeId"])
+		node_colors = settings["PNG_NODECOLOR"]
 
-color = ["white","#cc0000","#00cc00","#0000cc","#aaaa00","#aa00aa","#00aaaa","#999999"]
-weight = [0,1,1,1,2,2,2,3]
-for index, edge in section.iterrows():
-	phase = edge["Phase"]
-	fnode = edge["FromNodeId"]
-	tnode = edge["ToNodeId"]
-	graph.add_edge(str(fnode),str(tnode),color=color[phase],weight=weight[phase],phase=phase)
-if not settings["PNG_NODECOLOR"] or settings["PNG_NODECOLOR"] == "byphase":
-	node_colors = {}
-	for node in graph.nodes:
-		phase = 0
-		for edge in graph.edges(node):
-			phase |= graph.edges[edge]["phase"]
-		node_colors[node] = {"color":color[phase]}
-	nx.set_node_attributes(graph,node_colors)
-	node_colors = nx.get_node_attributes(graph,"color").values()
-else:
-	node_colors = settings["PNG_NODECOLOR"]
+	# handle multipartite graph
+	if settings["PNG_LAYOUT"] == "multipartite":
+		dist = {}
+		for node in graph.nodes:
+			dist[node] = {"subset": nx.shortest_path_length(graph,node,settings["PNG_ROOTNODE"])}
+		nx.set_node_attributes(graph,dist)
+		layout_options = {"align":"horizontal","scale":-1.0}
+	if settings["PNG_LAYOUT"] == "shell":
+		shells = {}
+		for node in graph.nodes:
+			dist = nx.shortest_path_length(graph,node,settings["PNG_ROOTNODE"])
+			if not dist in shells.keys():
+				shells[dist] = []
+			shells[dist].append(node)
+		items = []
+		for item in sorted(shells.keys()):
+			items.append(shells[item])
+		print(items)
+		layout_options = {"nlist":items}
+	else:
+		layout_options = {}
 
-# handle multipartite graph
-if settings["PNG_LAYOUT"] == "multipartite":
-	dist = {}
-	for node in graph.nodes:
-		dist[node] = {"subset": nx.shortest_path_length(graph,node,settings["PNG_ROOTNODE"])}
-	nx.set_node_attributes(graph,dist)
-	layout_options = {"align":"horizontal","scale":-1.0}
-if settings["PNG_LAYOUT"] == "shell":
-	shells = {}
-	for node in graph.nodes:
-		dist = nx.shortest_path_length(graph,node,settings["PNG_ROOTNODE"])
-		if not dist in shells.keys():
-			shells[dist] = []
-		shells[dist].append(node)
-	items = []
-	for item in sorted(shells.keys()):
-		items.append(shells[item])
-	print(items)
-	layout_options = {"nlist":items}
-else:
-	layout_options = {}
-
-# output to PNG
-size = settings["PNG_FIGSIZE"].split("x")
-plt.figure(figsize = (int(size[0]),int(size[1])))
-edges = graph.edges()
-colors = [graph[u][v]["color"] for u,v in edges]
-weights = [graph[u][v]["weight"] for u,v in edges]
-if settings["PNG_LAYOUT"] == "nodexy":
-	pos = nx.get_node_attributes(graph,"pos")
-elif hasattr(nx,settings["PNG_LAYOUT"]+"_layout"):
-	call = getattr(nx,settings["PNG_LAYOUT"]+"_layout")
-	pos = call(graph,**layout_options)
-else:
-	raise Exception("LAYOUT={settings['LAYOUT']} is invalid")
-try:
-	nx.draw(graph, pos,
-		with_labels = True,
-		edge_color = colors,
-		width = weights,
-		labels = labels,
-		node_size = int(settings["PNG_NODESIZE"]),
-		node_color = node_colors,
-		font_size = int(settings["PNG_FONTSIZE"]),
-		)
-	plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
-except nx.NetworkXError as err:
-	print(f"Cannot generate the network plot because {err}")
+	# output to PNG
+	size = settings["PNG_FIGSIZE"].split("x")
+	plt.figure(figsize = (int(size[0]),int(size[1])))
+	edges = graph.edges()
+	colors = [graph[u][v]["color"] for u,v in edges]
+	weights = [graph[u][v]["weight"] for u,v in edges]
+	if settings["PNG_LAYOUT"] == "nodexy":
+		pos = nx.get_node_attributes(graph,"pos")
+	elif hasattr(nx,settings["PNG_LAYOUT"]+"_layout"):
+		call = getattr(nx,settings["PNG_LAYOUT"]+"_layout")
+		pos = call(graph,**layout_options)
+	else:
+		raise Exception("LAYOUT={settings['LAYOUT']} is invalid")
+	try:
+		nx.draw(graph, pos,
+			with_labels = True,
+			edge_color = colors,
+			width = weights,
+			labels = labels,
+			node_size = int(settings["PNG_NODESIZE"]),
+			node_color = node_colors,
+			font_size = int(settings["PNG_FONTSIZE"]),
+			)
+		if network_select:
+			plt.savefig(f"{output_folder}/network_id_{settings['PNG_FIGNAME']}")
+		else:
+			plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
+	except nx.NetworkXError as err:
+		print(f"Cannot generate the network plot because {err}")
