@@ -34,7 +34,7 @@ def main(inputs,outputs,options={}):
 	INPUTNAME = inputs[0]
 	OUTPUTNAME = outputs[0]
 	
-	CSVDIRNAME = INPUTNAME.split(".")[0]
+	CSVDIRNAME = INPUTNAME.split("/")[-1].split(".")[0]
 	CSVDIR = f"/tmp/openfido/{CSVDIRNAME}"
 	SRCDIR = os.getcwd()
 	OUTPUTDIR = f"{SRCDIR}/openfido_{CSVDIRNAME}_output"
@@ -110,6 +110,7 @@ def main(inputs,outputs,options={}):
 	print(f"EXTRACT = {PROCCONFIG['extract']}")
 	print(f"POSTPROC = {PROCCONFIG['postproc']}")
 	print(f"OUTPUTS = {PROCCONFIG['outputs']}")
+	print(f"output_folder = {PROCCONFIG['output_folder']}")
 
 	result = os.popen(f"python3 {cache}/cyme-extract/postproc/write_glm.py --cyme-tables").read()
 	tables = result.split()
