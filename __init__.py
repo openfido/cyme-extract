@@ -57,7 +57,11 @@ def main(inputs,outputs,options={}):
 		TABLES = settings["TABLES"]
 		EXTRACT = settings["EXTRACT"]
 		TIMEZONE = "UTC"
-		POSTPROCS = list(settings["POSTPROC"])
+		try:
+			POSTPROCS = settings["POSTPROC"].to_list()
+		except:
+			POSTPROCS = []
+			POSTPROCS.append(settings["POSTPROC"])
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	elif os.path.exists(f"{os.path.dirname(SRCDIR)}/config.csv"):
 		print(f"Use settings from 'config.csv' in parent directory:")
@@ -70,7 +74,11 @@ def main(inputs,outputs,options={}):
 		TABLES = settings["TABLES"]
 		EXTRACT = settings["EXTRACT"]
 		TIMEZONE = "UTC"
-		POSTPROCS = list(settings["POSTPROC"])
+		try:
+			POSTPROCS = settings["POSTPROC"].to_list()
+		except:
+			POSTPROCS = []
+			POSTPROCS.append(settings["POSTPROC"])
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	else:
 		print(f"No 'config.csv', using default settings:")
