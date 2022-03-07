@@ -88,7 +88,7 @@ def main(inputs,outputs,options={}):
 		TIMEZONE = "UTC"
 		POSTPROCS = []
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
-	
+
 	PROCCONFIG = {
 		"input_folder": SRCDIR,
 		"output_folder": OUTPUTDIR,
