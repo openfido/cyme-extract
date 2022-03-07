@@ -1769,6 +1769,8 @@ class GLM:
 							warning(f"{cyme_mdbname}@{network_id} phase dismatch: parent {target_node_name} has {target_node_phases} but child {name} has {data['phases']}")
 							if phase_check_fix:
 								self.objects[name]["phases"] = self.objects[name]["phases"].replace(phase,"")
+								if len(self.objects[name]["phases"]) == 0:
+									warning(f"{cyme_mdbname}@{network_id} phase problem: {name} phases is None")
 
 	def voltage_checks(self, nominal_voltage): # Check transformer primary/secondary voltage
 		check_done = False
