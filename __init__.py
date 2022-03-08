@@ -57,11 +57,7 @@ def main(inputs,outputs,options={}):
 		TABLES = settings["TABLES"]
 		EXTRACT = settings["EXTRACT"]
 		TIMEZONE = "UTC"
-		try:
-			POSTPROCS = settings["POSTPROC"].to_list()
-		except:
-			POSTPROCS = []
-			POSTPROCS.append(settings["POSTPROC"])
+		POSTPROCS = settings["POSTPROC"].split(" ")
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	elif os.path.exists(f"{os.path.dirname(SRCDIR)}/config.csv"):
 		print(f"Use settings from 'config.csv' in parent directory:")
@@ -74,11 +70,7 @@ def main(inputs,outputs,options={}):
 		TABLES = settings["TABLES"]
 		EXTRACT = settings["EXTRACT"]
 		TIMEZONE = "UTC"
-		try:
-			POSTPROCS = settings["POSTPROC"].to_list()
-		except:
-			POSTPROCS = []
-			POSTPROCS.append(settings["POSTPROC"])
+		POSTPROCS = settings["POSTPROC"].split(" ")
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	else:
 		print(f"No 'config.csv', using default settings:")
@@ -99,15 +91,21 @@ def main(inputs,outputs,options={}):
 		"tables": TABLES,
 	}
 	flags = []
+	change_postprocs = False
 	for option in options:
 		if "=" in option:
 			# Should we use command line to change converter configurations?
 			opt_defined = option.split("=")
 			if opt_defined[0].lower() in PROCCONFIG.keys():
 				try:
-					PROCCONFIG[opt_defined[0].lower()] = opt_defined[1]
+					if opt_defined[0].lower() == "postproc":
+						PROCCONFIG["postproc"] = opt_defined[1].split(" ")
+					else:
+						PROCCONFIG[opt_defined[0].lower()] = opt_defined[1]
 				except:
 					raise Exception(f"option {option} unexpected")
+			else:
+				print(f"option {option} unsupported")
 		elif option[0] == '-':
 			flags.append(option)
 	flags = ' '.join(flags)
@@ -119,7 +117,7 @@ def main(inputs,outputs,options={}):
 	print(f"POSTPROC = {PROCCONFIG['postproc']}")
 	print(f"OUTPUTS = {PROCCONFIG['outputs']}")
 	print(f"output_folder = {PROCCONFIG['output_folder']}")
-
+	printt()
 	result = os.popen(f"python3 {cache}/cyme-extract/postproc/write_glm.py --cyme-tables").read()
 	tables = result.split()
 
