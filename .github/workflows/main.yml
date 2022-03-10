@@ -1,0 +1,34 @@
+name: validation
+
+on:
+
+  push:
+    branches: [ main ]
+    
+  pull_request:
+    branches: [ main ]
+    
+  workflow_dispatch:
+
+jobs:
+
+  build:
+  
+    runs-on: ubuntu-latest
+    
+    steps:
+    
+      - uses: actions/checkout@v2
+      
+      - name: update
+        run: python3 -m pip install -r requirements.txt
+        
+      - name: validate
+        run: . autotest.sh
+        
+      - name: artifacts
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: autotest-errors
+          path: autotest-errors.tar.gz
