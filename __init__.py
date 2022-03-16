@@ -117,7 +117,7 @@ def main(inputs,outputs,options={}):
 	print(f"POSTPROC = {PROCCONFIG['postproc']}")
 	print(f"OUTPUTS = {PROCCONFIG['outputs']}")
 	print(f"output_folder = {PROCCONFIG['output_folder']}")
-	printt()
+
 	result = os.popen(f"python3 {cache}/cyme-extract/postproc/write_glm.py --cyme-tables").read()
 	tables = result.split()
 
