@@ -2221,12 +2221,10 @@ def cyme_extract_4700(network_id,network):
 			device_dict.update(links)
 
 	# cyme_table["node"]
-	print("Add nodes")
 	for node_id in node_dict.keys():
 		node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=4700)
 
 	# overhead lines
-	print("Add overhead lines")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["overheadline"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
@@ -2235,7 +2233,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "overheadline".')
 
 	# underground lines
-	print("Add underground lines")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["undergroundline"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
@@ -2244,7 +2241,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "undergroundline".')
 
 	# load
-	print("Add load")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
 				section_id = all_section_device[all_section_device["DeviceNumber"] == cyme_data['DeviceNumber']]["SectionId"].values
@@ -2255,7 +2251,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "customerload".')
 
 	# transformer
-	print("Add transformer")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
@@ -2264,7 +2259,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "transformer".')
 
 	# regulator
-	print("Add regulator")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
@@ -2273,7 +2267,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "regulator".')
 
 	# capacitor
-	print("Add capacitor")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
 			section_id = all_section_device[all_section_device["DeviceNumber"] == cyme_data['DeviceNumber']]["SectionId"].values
@@ -2284,7 +2277,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "capacitor".')
 
 	# switches
-	print("Add switches")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
@@ -2293,7 +2285,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "switch".')
 
 	# breaker
-	print("Add breaker")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["breaker"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
@@ -2302,7 +2293,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "breaker".')
 
 	# recloser
-	print("Add recloser")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["recloser"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
@@ -2311,7 +2301,6 @@ def cyme_extract_4700(network_id,network):
 		warning(f'{cyme_mdbname}@{network_id}: cannot add GLM objects from cyme_table "recloser".')
 
 	# fuse
-	print("Add fuse")
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["fuse"],NetworkId=network_id).iterrows():
 			cyme_id = fix_name(cyme_data['DeviceNumber'])
