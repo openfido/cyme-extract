@@ -131,13 +131,14 @@ def main(inputs,outputs,options={}):
 	if not os.path.exists(PROCCONFIG['output_folder']):
 		os.system(f"mkdir -p {PROCCONFIG['output_folder']}")
 
-	for n in range(len(PROCCONFIG['postproc'])):
-		process = PROCCONFIG['postproc'][n]
+	if "voltage_profile.py" in PROCCONFIG['postproc'] and "write_glm.py" in PROCCONFIG['postproc']:
+		PROCCONFIG['postproc'].sort(key = 'voltage_profile.py'.__eq__)
+
+	for process in (PROCCONFIG['postproc']):
 		if process == process: 
 			try:
 				os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR} {flags}")
 			except:
-				# raise Exception(f"{process} unavailable")
 				import traceback
 				print(f"ERROR [mdb-cyme2glm]: {traceback.print_exc()}")
 				sys.exit(15)
