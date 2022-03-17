@@ -1,0 +1,37 @@
+name: validation
+
+on:
+
+  push:
+    branches: [ main ]
+    
+  pull_request:
+    branches: [ main ]
+    
+  workflow_dispatch:
+
+jobs:
+
+  build:
+  
+    runs-on: ubuntu-latest
+    
+    steps:
+    
+      - uses: actions/checkout@v2
+      
+      - name: update
+        run: |
+          sudo apt update -yqq
+          sudo apt install mdbtools tzdata python3 zip -yqq 
+          python3 -m pip install scipy pandas networkx matplotlib --user
+        
+      - name: validate
+        run: . autotest.sh
+        
+      - name: artifacts
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: autotest-errors
+          path: autotest-errors.tar.gz
