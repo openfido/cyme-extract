@@ -9,14 +9,12 @@
     "config" : "csv"
   },
   "config" : {
-
     "FILES" : {
       "prompt" : "File(s) to extract",
       "description" : "File(s) to extract (patterns ok).",
       "default" : "*.mdb",
       "input_type" : "str required"
     },
-    
     "TABLES" :
     {
       "prompt" : "Table(s) to extract",
@@ -24,7 +22,6 @@
       "default" : "*",
       "input_type" : "str required"
     },
-
     "EXTRACT" :
     {
       "prompt" : "Extract condition",
@@ -32,7 +29,6 @@
       "default" : "non-empty",
       "input_type" : "str required"
     },
-
     "TIMEZONE" :
     {
       "prompt" : "Timezone locale",
@@ -40,7 +36,6 @@
       "default" : "PST+8PDT",
       "input_type" : "str required"
     },
-
     "POSTPROC" :
     {
       "prompt" : "Post-processing",
@@ -48,14 +43,12 @@
       "default" : "",
       "input_type" : "str"
     },
-
     "OUTPUT" :
     {
       "prompt" : "Output files",
       "description" : "Specify output files to save (e.g., csv, zip, json, glm, png)",
       "default" : "zip csv json glm png",
       "input_type" : "str required"
-    },
-
+    }
   }
 }
