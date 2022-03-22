@@ -1,12 +1,11 @@
 TABLES,glm
 EXTRACT,non-empty
-POSTPROC,network_graph.py
 PNG_FIGSIZE,6x6
 PNG_FONTSIZE,5
 PNG_NODESIZE,10
 PNG_NODECOLOR,byphase
 PNG_LAYOUT,nodexy
-POSTPROC,write_glm.py
+POSTPROC,write_glm.py network_graph.py
 GLM_NOMINAL_VOLTAGE,2.40178 kV
 GLM_INCLUDE,config.glm
 GLM_MODIFY,modify.csv
