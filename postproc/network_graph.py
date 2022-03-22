@@ -40,34 +40,77 @@ cyme_tables = ["CYMNETWORK","CYMNODE","CYMSECTION"]
 # Argument parsing
 #
 config = {"input":"/","output":"/","from":[],"type":[]}
-input_folder = "."
-output_folder = ".."
-config_file = "config.csv"
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file="])
+input_folder = None
+output_folder = None
+data_folder = None
+config_file = None
+equipment_file = None
+network_select = None
+single_file = False
+generated_file = None
+WARNING = True
+DEBUG = False
+QUIET = False
+VERBOSE = False
+
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:g:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file=","generated="])
+
+#
+# Warning/error/help handling
+#
 def help(exit_code=None,details=False):
-	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-t|--cyme-tables] [-c|--config CSV] [-e|--equipment file_name] [-n|--network_ID ID]")
+	print("Syntax: python3 -m network_graph.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-g|--generated 'file name'][-t|--cyme-tables] [-c|--config CSV] [-e|--equipment 'file name'] [-n|--network_ID 'ID1 ID2 ..']")
 	if details:
 		print(globals()[__name__].__doc__)
 	if type(exit_code) is int:
 		exit(exit_code)
 
+def verbose(msg):
+		print(f"VERBOSE [network_graph]: {msg}",flush=True)
+
+warning_count = 0
+warning_file = sys.stderr
+def warning(msg):
+	global warning_count
+	warning_count += 1
+	if WARNING:
+		print(f"WARNING [network_graph]: {msg}",file=warning_file,flush=True)
+	if VERBOSE:
+		verbose(msg)
+
 error_count = 0
-def error(*args):
+error_file = sys.stderr
+def error(msg,code=None):
 	global error_count
 	error_count += 1
-	if settings["GLM_ERRORS"] == "stdout":
-		print(f"*** ERROR {error_count} ***")
-		print(" ","\n  ".join(args))
-	elif settings["GLM_ERRORS"] == "stderr":
-		print(f"*** ERROR {error_count} ***",file=sys.stderr)
-		print(" ","\n  ".join(args),file=sys.stderr)
-	else:
-		raise Exception("\n".join(args))
+	if DEBUG:
+		raise Exception(msg)
+	if not QUIET:
+		print(f"ERROR [network_graph]: {msg}",file=error_file,flush=True)
+	if type(code) is int:
+		exit(code)
 
+output_file = sys.stdout
+def debug(msg):
+	if DEBUG:
+		print(f"DEBUG [network_graph]: {msg}",file=output_file,flush=True)
+
+def png_output_print(msg):
+	print(f"PNG_OUTPUT [network_graph]: {msg}",file=output_file,flush=True)
+	if VERBOSE:
+		verbose(msg)
+
+def format_exception(errmsg,ref=None,data=None):
+	tb = str(traceback.format_exc().replace('\n','\n  '))
+	dd = str(pp.pformat(data).replace('\n','\n  '))
+	return "\n  " + tb + "'" + ref  + "' =\n  "+ dd
+
+#
+# Inputs handling
+#
 if not opts : 
 	help(1)
 
-network_select = None
 for opt, arg in opts:
 	if opt in ("-h","--help"):
 		help(0,details=True)
@@ -77,7 +120,7 @@ for opt, arg in opts:
 		else:
 			print(config)
 	elif opt in ("-t","--cyme-tables"):
-		print(" ".join(cyme_tables))
+		print(" ".join(cyme_tables_required))
 		sys.exit(0)
 	elif opt in ("-i", "--input"):
 		input_folder = arg.strip()
@@ -88,16 +131,22 @@ for opt, arg in opts:
 	elif opt in ("-n", "--network_ID"):
 		# only extract the selected network
 		network_select = arg.split(" ")
-	elif opt in ("-s", "--single","-e", "--equipment"):
+	elif opt in ("-e", "--equipment"):
 		pass
+	elif opt in ("-g", "--generated"):
+		generated_file = arg.strip()
 	else:
-		error(f"{opt}={arg} is not a valid option");
+		error(f"{opt}={arg} is not a valid option", 5);
 if input_folder == None:
-	raise Exception("input_folder must be specified using '-i|--input DIR' option")
+	error("input_folder must be specified using '-i|--input DIR' option")
 if output_folder == None:
-	raise Exception("output_folder must be specified using '-o|--OUTPUT DIR' option")
+	error("output_folder must be specified using '-o|--OUTPUT DIR' option")
 if data_folder == None:
-	raise Exception("data_folder must be specified using '-d|--data DIR' option")
+	error("data_folder must be specified using '-d|--data DIR' option")
+if config_file == None:
+	config_file = f"{input_folder}/config.csv"
+if not network_select:
+	single_file = True
 
 # load the configuration
 config = pd.DataFrame({
@@ -108,6 +157,13 @@ config = pd.DataFrame({
 	"PNG_NODECOLOR" : ["byphase"],
 	"PNG_LAYOUT" : ["nodexy"],
 	"PNG_ROOTNODE" : [""],
+	"PNG_OUTPUT" : "/dev/stdout",
+	"ERROR_OUTPUT" : "/dev/stderr",
+	"WARNING_OUTPUT" : "/dev/stderr",
+	"WARNING" : ["True"], 
+	"DEBUG" : ["False"],
+	"QUIET" : ["False"],
+	"VERBOSE" : ["False"],
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 try:
@@ -121,7 +177,7 @@ try:
 except:
 	pass
 settings = config["value"]
-print(f"Running network_graph.py:")
+print(f"*** Running network_graph.py ***")
 for name, data in config.iterrows():
 	print(f"  {name} = {data['value']}")
 del config
@@ -136,9 +192,11 @@ if network_select is None:
 	network_list = ["ALL"]
 else:
 	network_list = network_select
+network_count = 0
 for network_id in network_list:
 	graph = nx.Graph()
 	labels = {}
+	network_count += 1
 	for index, node in nodes.iterrows():
 		if network_select is None or network_id == node["NetworkId"]:
 			labels[node["NodeId"]] = f"{node['NodeId']}\n"
@@ -146,7 +204,7 @@ for network_id in network_list:
 				graph.add_node(node["NodeId"],pos=(node["X"],node["Y"]))
 			elif settings["PNG_LAYOUT"] == "multipartite":
 				if settings["PNG_ROOTNODE"] == "":
-					raise Exception("cannot use LAYOUT='multipartite' layout without specifying value for ROOTNODE")
+					error("cannot use LAYOUT='multipartite' layout without specifying value for ROOTNODE", 5)
 				graph.add_node(node["NodeId"])
 			else:
 				graph.add_node(node["NodeId"])
@@ -188,7 +246,6 @@ for network_id in network_list:
 		items = []
 		for item in sorted(shells.keys()):
 			items.append(shells[item])
-		print(items)
 		layout_options = {"nlist":items}
 	else:
 		layout_options = {}
@@ -205,7 +262,7 @@ for network_id in network_list:
 		call = getattr(nx,settings["PNG_LAYOUT"]+"_layout")
 		pos = call(graph,**layout_options)
 	else:
-		raise Exception("LAYOUT={settings['LAYOUT']} is invalid")
+		error("LAYOUT={settings['LAYOUT']} is invalid", 10)
 	try:
 		nx.draw(graph, pos,
 			with_labels = True,
@@ -217,8 +274,13 @@ for network_id in network_list:
 			font_size = int(settings["PNG_FONTSIZE"]),
 			)
 		if network_select:
-			plt.savefig(f"{output_folder}/network_id_{settings['PNG_FIGNAME']}")
+			plt.savefig(f"{output_folder}/{network_id}_{settings['PNG_FIGNAME']}")
 		else:
 			plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
 	except nx.NetworkXError as err:
-		print(f"Cannot generate the network plot because {err}")
+		warning(f"Cannot generate the network plot because {err}")
+
+#
+# Final checks
+#
+print(f"CYME-to-GridLAB-D network_graph done: {network_count} networks processed, {warning_count} warnings, {error_count} errors.")
