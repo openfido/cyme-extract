@@ -80,14 +80,67 @@ config_file = None
 equipment_file = None
 network_select = None
 single_file = False
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file="])
+generated_file = None
+WARNING = True
+DEBUG = False
+QUIET = False
+VERBOSE = False
+
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:g:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file=","generated="])
+
+#
+# Warning/error/help handling
+#
 def help(exit_code=None,details=False):
-	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-t|--cyme-tables] [-c|--config CSV] [-e|--equipment file_name] [-n|--network_ID 'ID1 ID2 ..']")
+	print("Syntax: python3 -m write_glm.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-g|--generated 'file name'][-t|--cyme-tables] [-c|--config CSV] [-e|--equipment 'file name'] [-n|--network_ID 'ID1 ID2 ..']")
 	if details:
 		print(globals()[__name__].__doc__)
 	if type(exit_code) is int:
 		exit(exit_code)
 
+def verbose(msg):
+		print(f"VERBOSE [write_glm]: {msg}",flush=True)
+
+warning_count = 0
+warning_file = sys.stderr
+def warning(msg):
+	global warning_count
+	warning_count += 1
+	if WARNING:
+		print(f"WARNING [write_glm]: {msg}",file=warning_file,flush=True)
+	if VERBOSE:
+		verbose(msg)
+
+error_count = 0
+error_file = sys.stderr
+def error(msg,code=None):
+	global error_count
+	error_count += 1
+	if DEBUG:
+		raise Exception(msg)
+	if not QUIET:
+		print(f"ERROR [write_glm]: {msg}",file=error_file,flush=True)
+	if type(code) is int:
+		exit(code)
+
+output_file = sys.stdout
+def debug(msg):
+	if DEBUG:
+		print(f"DEBUG [write_glm]: {msg}",file=output_file,flush=True)
+
+def glm_output_print(msg):
+	print(f"GLM_OUTPUT [write_glm]: {msg}",file=output_file,flush=True)
+	if VERBOSE:
+		verbose(msg)
+
+def format_exception(errmsg,ref=None,data=None):
+	tb = str(traceback.format_exc().replace('\n','\n  '))
+	dd = str(pp.pformat(data).replace('\n','\n  '))
+	return "\n  " + tb + "'" + ref  + "' =\n  "+ dd
+
+#
+# Inputs handling
+#
 if not opts : 
 	help(1)
 
@@ -113,14 +166,16 @@ for opt, arg in opts:
 		network_select = arg.split(" ")
 	elif opt in ("-e", "--equipment"):
 		equipment_file = arg.strip()
+	elif opt in ("-g", "--generated"):
+		generated_file = arg.strip()
 	else:
-		error(f"{opt}={arg} is not a valid option");
+		error(f"{opt}={arg} is not a valid option", 5);
 if input_folder == None:
-	raise Exception("input_folder must be specified using '-i|--input DIR' option")
+	error("input_folder must be specified using '-i|--input DIR' option")
 if output_folder == None:
-	raise Exception("output_folder must be specified using '-o|--OUTPUT DIR' option")
+	error("output_folder must be specified using '-o|--OUTPUT DIR' option")
 if data_folder == None:
-	raise Exception("data_folder must be specified using '-d|--data DIR' option")
+	error("data_folder must be specified using '-d|--data DIR' option")
 if config_file == None:
 	config_file = f"{input_folder}/config.csv"
 if not network_select:
@@ -150,59 +205,35 @@ os.chdir(app_workdir)
 # CYME model information
 #
 cyme_mdbname = data_folder.split("/")[-1]
+if generated_file:
+	generated_name = generated_file.split(".")[0]
+else:
+	generated_name = cyme_mdbname
 default_cyme_extractor = "5020"
-
-#
-# Warning/error handling
-#
-warning_count = 0
-def warning(*args):
-	global warning_count
-	warning_count += 1
-	if settings["GLM_WARNINGS"] == "stdout":
-		print(f"*** WARNING {warning_count} ***")
-		print(" ","\n  ".join(args))
-	elif settings["GLM_WARNINGS"] == "stderr":
-		print(f"*** WARNING {warning_count} ***",file=sys.stderr)
-		print(" ","\n  ".join(args),file=sys.stderr)
-	else:
-		raise Exception("\n".join(args))
-
-error_count = 0
-def error(*args):
-	global error_count
-	error_count += 1
-	if settings["GLM_ERRORS"] == "stdout":
-		print(f"*** ERROR {error_count} ***")
-		print(" ","\n  ".join(args))
-	elif settings["GLM_ERRORS"] == "stderr":
-		print(f"*** ERROR {error_count} ***",file=sys.stderr)
-		print(" ","\n  ".join(args),file=sys.stderr)
-	else:
-		raise Exception("\n".join(args))
-
-def format_exception(errmsg,ref=None,data=None):
-	tb = str(traceback.format_exc().replace('\n','\n  '))
-	dd = str(pp.pformat(data).replace('\n','\n  '))
-	return "\n  " + tb + "'" + ref  + "' =\n  "+ dd
 
 #
 # Load user configuration
 #
+
 config = pd.DataFrame({
 	"GLM_NETWORK_PREFIX" : [""],
 	"GLM_NETWORK_MATCHES" : [".*"],
 	"GLM_NOMINAL_VOLTAGE" : [""],
 	"GLM_INCLUDE" : [""],
 	"GLM_DEFINE" : [""],
-	"GLM_ERRORS" : ["exception"],
-	"GLM_WARNINGS" : ["stdout"],
 	"GLM_MODIFY" : [""],
 	"GLM_ASSUMPTIONS" : ["include"],
 	"GLM_NODE_EXTRACT" : ["false"],
 	"GLM_VOLTAGE_FIX" : ["false"],
 	"GLM_PHASE_FIX" : ["false"],
 	"GLM_DISTRIBUTED_LOAD_CONFIG" : ["to"],
+	"GLM_OUTPUT" : "/dev/stdout",
+	"ERROR_OUTPUT" : "/dev/stderr",
+	"WARNING_OUTPUT" : "/dev/stderr",
+	"WARNING" : ["True"], 
+	"DEBUG" : ["False"],
+	"QUIET" : ["False"],
+	"VERBOSE" : ["False"],
 	}).transpose().set_axis(["value"],axis=1,inplace=0)
 config.index.name = "name" 
 if os.path.exists(config_file):
@@ -226,13 +257,19 @@ for name, values in settings.iterrows():
 	if name in config.index:
 		config["value"][name] = values[0]
 settings = config["value"]
-print(f"Running write_glm.py:")
-for name, data in config.iterrows():
-	print(f"  {name} = {data['value']}")
+
+output_file = open(settings["GLM_OUTPUT"],"w")
+error_file = open(settings["ERROR_OUTPUT"],"a")
+warning_file = open(settings["WARNING_OUTPUT"],"a")
+
 default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
 node_extract2csv = True if settings["GLM_NODE_EXTRACT"].lower() == "true" else False
 voltage_check_fix = True if settings["GLM_VOLTAGE_FIX"].lower() == "true" else False
 phase_check_fix = True if settings["GLM_PHASE_FIX"].lower() == "true" else False
+WARNING = True if settings["WARNING"].lower() == "true" else False
+DEBUG = True if settings["DEBUG"].lower() == "true" else False
+QUIET = True if settings["QUIET"].lower() == "true" else False
+VERBOSE = True if settings["VERBOSE"].lower() == "true" else False
 
 if settings["GLM_DISTRIBUTED_LOAD_CONFIG"].lower() == "to":
 	dist_load_config = "to"
@@ -242,6 +279,10 @@ elif settings["GLM_DISTRIBUTED_LOAD_CONFIG"].lower() == "both":
 	dist_load_config = "both"
 else:
 	dist_load_config = "to"
+
+print(f"*** Running write_glm.py ***")
+for name, data in config.iterrows():
+	print(f"  {name} = {data['value']}")
 
 #
 # Phase mapping
@@ -360,7 +401,7 @@ def load_cals(load_type,load_phase,connection,load_power1,load_power2,value_type
 		elif len(cyme_phase_name_delta[phase_number].replace('N','')) == 3:
 			load_scale = 3
 		else:
-			raise Exception(f'wrong load phase {load_phase} for delta connection')
+			error(f'wrong load phase {load_phase} for delta connection', 10)
 	else:
 		# wye connecttion
 		vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2.0/3.0)*1000.0
@@ -368,7 +409,7 @@ def load_cals(load_type,load_phase,connection,load_power1,load_power2,value_type
 		line_phase_gain = 1
 		load_scale = len(cyme_phase_name[phase_number].replace('N',''))
 		if load_scale < 0 or load_scale > 3:
-			raise Exception(f'wrong load phase {load_phase} for wye connection')
+			error(f'wrong load phase {load_phase} for wye connection', 11)
 	if value_type == 0:
 		load_real = load_power1 * 1000.0
 		load_imag = load_power2 * 1000.0
@@ -457,8 +498,7 @@ for filename in glob.iglob(f"{data_folder}/*.csv"):
 	cyme_table[name] = data
 for filename in cyme_tables_required:
 	if filename[3:].lower() not in cyme_table.keys():
-#		raise Exception(f"required CYME table '{filename}' is not found in {input_folder}")
-		print("Table needed but missing:", filename[3:].lower())
+		glm_output_print(f"Table needed but missing: {filename[3:].lower()}")
 if equipment_file != None:
 	if not os.path.exists(f'{data_folder}/cyme_equipment_tables'):
 		os.system(f"mkdir -p {data_folder}/cyme_equipment_tables")
@@ -473,7 +513,7 @@ if equipment_file != None:
 		data = pd.read_csv(filename, dtype=str)
 		name = os.path.basename(filename)[0:-4].lower()
 		cyme_equipment_table[name] = data
-	print(f'Equipment tables: {cyme_equipment_table.keys()}')
+	glm_output_print(f'Equipment tables: {cyme_equipment_table.keys()}')
 
 #
 # store geodata for all node
@@ -607,7 +647,7 @@ class GLM:
 
 	def clock(self, parameters = {}):
 		if not parameters:
-			raise Exception(f"clock needs parameters")
+			error(f"clock needs parameters", 1)
 		else:
 			self.write(f"clock")
 			self.write("{")
@@ -653,7 +693,7 @@ class GLM:
 					new_obj[key] = value
 			for key, value in parameters.items():
 				if not overwrite and key in new_obj.keys() and new_obj[key] != value:
-					raise Exception(f"object property '{key}={new_obj[key]}' merge conflicts with '{key}={value}'")
+					error(f"object property '{key}={new_obj[key]}' merge conflicts with '{key}={value}'", 2)
 				if value == None and key in new_obj.keys():
 					del new_obj[key]
 				else:
@@ -671,7 +711,7 @@ class GLM:
 		else:
 			for key, value in parameters.items():
 				if not overwrite and key in obj.keys() and obj[key] != value:
-					raise Exception(f"object property '{key}={obj[key]}' merge conflicts with '{key}={value}'")
+					error(f"object property '{key}={obj[key]}' merge conflicts with '{key}={value}'", 3)
 				if value == None and key in obj.keys():
 					del obj[key]
 				else:
@@ -968,7 +1008,7 @@ class GLM:
 		try:
 			line_phases = self.objects[line_name]['phases']
 		except:
-			raise Exception(f'cannot find the link objects for underground line {line_id}')
+			error(f'cannot find the link objects for underground line {line_id}', 20)
 		if "N" not in line_phases:
 			line_phases = line_phases + "N"
 		spacing_name = self.name(f'UL_{line_id}_{line_phases}',"line_spacing")
@@ -1019,9 +1059,9 @@ class GLM:
 					conductor = table_get(cyme_table['eqconductor'],conductor_id,None,'EquipmentId')
 				else:
 					# use default settings. TODO
-					raise Exception(f"cannot add cable conductor {conductor_name} for version {version}")
+					error(f"cannot add cable conductor {conductor_name} for version {version}", 21)
 				if conductor is None:
-					raise Exception(f"cannot add cable conductor {conductor_name} for version {version}")
+					error(f"cannot add cable conductor {conductor_name} for version {version}", 22)
 				else:
 					gmr = float(conductor["GMR"])
 					r25 = float(conductor["R25"])
@@ -1058,9 +1098,9 @@ class GLM:
 				spacing = table_get(cyme_table['eqgeometricalarrangement'],spacing_id,None,'EquipmentId')
 			else:
 				# use default settings. TODO
-				raise Exception(f"cannot add cable spacing {spacing_id} for version {version}")
+				error(f"cannot add cable spacing {spacing_id} for version {version}", 23)
 			if spacing is None:
-				raise Exception(f"cannot add cable spacing {spacing_id} for version {version}")
+				error(f"cannot add cable spacing {spacing_id} for version {version}", 24)
 			else:
 				Ax = float(spacing["ConductorA_Horizontal"])
 				Ay = float(spacing["ConductorA_Vertical"])
@@ -1171,7 +1211,7 @@ class GLM:
 		elif device_type == 21: # distributed load is attached at to node of section
 			parent_name = self.name(section["ToNodeId"],"node")
 		else:
-			raise Exception(f"CYME device type {device_type} is not supported as a load")
+			error(f"CYME device type {device_type} is not supported as a load", 30)
 
 		if parent_name not in self.objects.keys():
 			# Definition for node "parent_name" is missing
@@ -1427,7 +1467,7 @@ class GLM:
 					elif 'eqtransformer' in cyme_table.keys():
 						equipment = table_get(cyme_table["eqtransformer"],"DEFAULT",None,"EquipmentId")
 					else:
-						raise Exception(f"cannot add single transformer.")
+						error(f"cannot add single transformer.", 40)
 				NominalRatingKVA = float(equipment["NominalRatingKVA"])
 				PrimaryVoltageKVLL = float(equipment["PrimaryVoltageKVLL"])
 				SecondaryVoltageKVLL = float(equipment["SecondaryVoltageKVLL"])
@@ -1477,7 +1517,7 @@ class GLM:
 		elif 'eqregulator' in cyme_table.keys():
 			equipment = table_get(cyme_table["eqregulator"],equipment_id,None,"EquipmentId")
 		else:
-			raise Exception(f"cannot find cyme table 'eqtransformer'.")
+			error(f"cannot find cyme table 'eqtransformer'.", 50)
 		CTPrimaryRating = float(regulator["CTPrimaryRating"])
 		PTRatio = float(regulator["PTRatio"])
 		try:
@@ -1629,7 +1669,7 @@ class GLM:
 							warning(f"{cyme_mdbname}@{network_id}: multiple {multi_g[u][neighbor][edge_id]['edge_name'][0:2]} devices connected between {u} and {neighbor}.")
 							object_name = multi_g[u][neighbor][edge_id]["edge_name"]
 							if object_name in self.objects.keys():
-								print(f"object_name is deleted {object_name}.")
+								glm_output_print(f"object_name is deleted {object_name}.")
 								self.delete(object_name)
 					# RG > TF > SW > FS > OL = UL
 					if "RG" in edge_data.keys(): # one of the multi-edges is regulator
@@ -1730,7 +1770,7 @@ class GLM:
 						for key in edge_data.keys():
 							object_name = multi_g[u][neighbor][edge_data[key]]["edge_name"]
 							print(self.objects[object_name])
-						raise Exception(f"CYME model has unsupported duplicate connections between {u} and {neighbor}")
+						error(f"CYME model has unsupported duplicate connections between {u} and {neighbor}", 60)
 
 	def phase_checks(self): # check phase dismatch
 		check_done = False
@@ -1841,7 +1881,7 @@ def fix_unit(string,output_unit):
 	elif output_unit == "kV":
 		scale = 0.001
 	else:
-		raise Exception(f"cannot convert string {string} with unit {output_unit}.")
+		error(f"cannot convert string {string} with unit {output_unit}.", 71)
 	if "kV" in string:
 		scale = scale  * 1000.0
 		value_string = string.replace("kV","")
@@ -1852,7 +1892,7 @@ def fix_unit(string,output_unit):
 		value = float(value_string) * scale
 		return "%.4g" % value
 	except:
-		raise Exception(f"cannot convert string {string}.")
+		error(f"cannot convert string {string}.", 72)
 
 def feeder_voltage_find(network_id):
 	## set up feeder nominal voltage
@@ -1886,9 +1926,9 @@ def cyme_extract_5020(network_id,network):
 	last_change = int(network["LastChange"])
 	load_factor = float(network["LoadFactor"])
 	if single_file:
-		glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}.glm")
+		glmname = os.path.abspath(f"{output_folder}/{generated_name}.glm")
 	else:
-		glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}_{network_id}.glm")
+		glmname = os.path.abspath(f"{output_folder}/{generated_name}_{network_id}.glm")
 
 	glm = GLM(glmname,"w")
 	glm.comment(
@@ -2119,9 +2159,9 @@ def cyme_extract_4700(network_id,network):
 	last_change = int(network["LastChange"])
 	load_factor = float(network["LoadFactor"])
 	if single_file:
-		glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}.glm")
+		glmname = os.path.abspath(f"{output_folder}/{generated_name}.glm")
 	else:
-		glmname = os.path.abspath(f"{output_folder}/{cyme_mdbname}_{network_id}.glm")
+		glmname = os.path.abspath(f"{output_folder}/{generated_name}_{network_id}.glm")
 
 	glm = GLM(glmname,"w")
 	glm.comment(
@@ -2354,11 +2394,10 @@ for index, network in cyme_table["network"].iterrows():
 #
 # Final checks
 #
-
+print(f"CYME-to-GridLAB-D write_glm done: {network_count} networks processed, {warning_count} warnings, {error_count} errors.")
 if network_count == 0:
 	warning(f"  {cyme_mdbname}: the network pattern '{settings['GLM_NETWORK_MATCHES']}' did not match any networks in the database")
 elif warning_count > 0:
 	print("Model conversion problems can be corrected using 'GLM_MODIFY=modify.csv' in 'config.csv'.")
 	print("  See http://docs.gridlabd.us/index.html?owner=openfido&project=cyme-extract&doc=/Post_processing/Write_glm.md for details")	
 
-print(f"CYME-to-GridLAB-D conversion done: {network_count} networks processed, {warning_count} warnings, {error_count} errors")
