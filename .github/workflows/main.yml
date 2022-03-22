@@ -25,6 +25,7 @@ jobs:
           sudo apt update -yqq
           sudo apt install mdbtools tzdata python3 zip -yqq 
           python3 -m pip install scipy pandas networkx matplotlib --user
+          python3 -m pip install -r requirements.txt
         
       - name: validate
         run: . autotest.sh

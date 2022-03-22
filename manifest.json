@@ -1,0 +1,54 @@
+{
+  "name" : "CYME to GridLAB-D converter",
+  "description" : "Extract CYME data and create GridLAB-D model",
+  "docker" : "debian:11",
+  "git" : "https://github.com/openfido/cyme-extract.git",
+  "branch" : "main",
+  "script" : "openfido.sh",
+  "manual" : {
+    "config" : "csv"
+  },
+  "config" : {
+    "FILES" : {
+      "prompt" : "File(s) to extract",
+      "description" : "File(s) to extract (patterns ok).",
+      "default" : "*.mdb",
+      "input_type" : "str required"
+    },
+    "TABLES" :
+    {
+      "prompt" : "Table(s) to extract",
+      "description" : "Table(s) to extract (patterns ok).",
+      "default" : "*",
+      "input_type" : "str required"
+    },
+    "EXTRACT" :
+    {
+      "prompt" : "Extract condition",
+      "description" : "Specify whether to extract all tables or only non-empty tables.",
+      "default" : "non-empty",
+      "input_type" : "str required"
+    },
+    "TIMEZONE" :
+    {
+      "prompt" : "Timezone locale",
+      "description" : "Specify the timezone to use for date/time values",
+      "default" : "PST+8PDT",
+      "input_type" : "str required"
+    },
+    "POSTPROC" :
+    {
+      "prompt" : "Post-processing",
+      "description" : "Specify post processing to perform (e.g., network_graph, voltage_profile, write_glm)",
+      "default" : "",
+      "input_type" : "str"
+    },
+    "OUTPUT" :
+    {
+      "prompt" : "Output files",
+      "description" : "Specify output files to save (e.g., csv, zip, json, glm, png)",
+      "default" : "zip csv json glm png",
+      "input_type" : "str required"
+    }
+  }
+}
