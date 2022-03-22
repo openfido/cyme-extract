@@ -32,22 +32,23 @@ DEFAULT_OUTPUT=["zip", "csv", "png", "glm", "json"]
 
 def main(inputs,outputs,options={}):
 	INPUTNAME = inputs[0]
-	OUTPUTNAME = outputs[0]
-	
+	OUTPUTDIR = os.path.abspath(os.path.dirname(outputs[0]))
+	OUTPUTNAME = os.path.basename(outputs[0])
 	CSVDIRNAME = INPUTNAME.split("/")[-1].split(".")[0]
 	CSVDIR = f"/tmp/openfido/{CSVDIRNAME}"
 	SRCDIR = os.getcwd()
-	OUTPUTDIR = f"{SRCDIR}/openfido_{CSVDIRNAME}_output"
 
 	if os.path.exists(CSVDIR):
 		os.system(f"rm -rf {CSVDIR}")
 	os.system(f"mkdir -p {CSVDIR}")
+	os.system(f"mkdir -p {OUTPUTDIR}")
 
 	#
 	# Load user configuration
 	#
+	print(f"OpenFIDO CYME-extract config settings:",flush=True)
 	if os.path.exists("config.csv"):
-		print(f"Use settings from 'config.csv':")
+		print(f"  Use settings from '{SRCDIR}/config.csv':",flush=True)
 		config = pd.read_csv("config.csv", dtype=str,
 			names=["name","value"],
 			comment = "#",
@@ -59,8 +60,9 @@ def main(inputs,outputs,options={}):
 		TIMEZONE = "UTC"
 		POSTPROCS = settings["POSTPROC"].split(" ")
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
+
 	elif os.path.exists(f"{os.path.dirname(SRCDIR)}/config.csv"):
-		print(f"Use settings from 'config.csv' in parent directory:")
+		print(f"  Use settings from '{os.path.dirname(SRCDIR)}/config.csv':",flush=True)
 		config = pd.read_csv(f"{os.path.dirname(SRCDIR)}/config.csv", dtype=str,
 			names=["name","value"],
 			comment = "#",
@@ -73,13 +75,24 @@ def main(inputs,outputs,options={}):
 		POSTPROCS = settings["POSTPROC"].split(" ")
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 	else:
-		print(f"No 'config.csv', using default settings:")
+		print(f"  No 'config.csv', using default settings:",flush=True)
 		INPUTTYPE = INPUTNAME.split(".")[1]
 		TABLES = "glm"
 		EXTRACT = "all"
 		TIMEZONE = "UTC"
 		POSTPROCS = []
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
+
+	if "ERROR_OUTPUT" is settings.keys() and os.path.exists(settings["ERROR_OUTPUT"]):
+		os.remove(settings["ERROR_OUTPUT"])
+	if "WARNING_OUTPUT" is settings.keys() and os.path.exists(settings["WARNING_OUTPUT"]):
+		os.remove(settings["WARNING_OUTPUT"])
+	if "GLM_OUTPUT" is settings.keys() and os.path.exists(settings["GLM_OUTPUT"]):
+		os.remove(settings["GLM_OUTPUT"])
+	if "VOL_OUTPUT" is settings.keys() and os.path.exists(settings["VOL_OUTPUT"]):
+		os.remove(settings["VOL_OUTPUT"])
+	if "PNG_OUTPUT" is settings.keys() and os.path.exists(settings["PNG_OUTPUT"]):
+		os.remove(settings["PNG_OUTPUT"])
 
 	PROCCONFIG = {
 		"input_folder": SRCDIR,
@@ -110,13 +123,12 @@ def main(inputs,outputs,options={}):
 			flags.append(option)
 	flags = ' '.join(flags)
 
-	print(f"OpenFIDO config settings")
-	print(f"FILES = *.{PROCCONFIG['inputs']}")
-	print(f"TABLES = {PROCCONFIG['tables']}")
-	print(f"EXTRACT = {PROCCONFIG['extract']}")
-	print(f"POSTPROC = {PROCCONFIG['postproc']}")
-	print(f"OUTPUTS = {PROCCONFIG['outputs']}")
-	print(f"output_folder = {PROCCONFIG['output_folder']}")
+	print(f"  FILES = *.{PROCCONFIG['inputs']}",flush=True)
+	print(f"  TABLES = {PROCCONFIG['tables']}",flush=True)
+	print(f"  EXTRACT = {PROCCONFIG['extract']}",flush=True)
+	print(f"  POSTPROC = {PROCCONFIG['postproc']}",flush=True)
+	print(f"  OUTPUTS = {PROCCONFIG['outputs']}",flush=True)
+	print(f"  output_folder = {PROCCONFIG['output_folder']}",flush=True)
 
 	result = os.popen(f"python3 {cache}/cyme-extract/postproc/write_glm.py --cyme-tables").read()
 	tables = result.split()
@@ -137,15 +149,15 @@ def main(inputs,outputs,options={}):
 	for process in (PROCCONFIG['postproc']):
 		if process == process: 
 			try:
-				os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR} {flags}")
+				os.system(f"python3 {cache}/cyme-extract/postproc/{process} -i {PROCCONFIG['input_folder']} -o {PROCCONFIG['output_folder']} -c config.csv -d {CSVDIR} -g {OUTPUTNAME} {flags}")
 			except:
 				import traceback
 				print(f"ERROR [mdb-cyme2glm]: {traceback.print_exc()}")
 				sys.exit(15)
 		else:
-			print(f'cannot run postprocessing function "{process}"')
+			print(f'cannot run postprocessing function "{process}"',flush=True)
 
-	print(f"Moving config fiels to {PROCCONFIG['output_folder']}")
+	print(f"OpenFIDO CYME-extract Done. Moving config fiels to {PROCCONFIG['output_folder']}",flush=True)
 	file_names = os.listdir(PROCCONFIG['input_folder'])
 	for file_name in file_names:
 		for EXT in DEFAULT_OUTPUT:
@@ -154,4 +166,4 @@ def main(inputs,outputs,options={}):
 					shutil.copy2(os.path.join(PROCCONFIG['input_folder'], file_name), PROCCONFIG['output_folder'])
 
 	os.system(f"cd {CSVDIR} ; zip -q -R {PROCCONFIG['output_folder']}/{CSVDIRNAME}_tables.zip *.csv ./*.csv")
-	# os.system(f"rm -rf {CSVDIR}")
+	os.system(f"rm -rf {CSVDIR}")
