@@ -18,8 +18,8 @@
     "TABLES" :
     {
       "prompt" : "Table(s) to extract",
-      "description" : "Table(s) to extract (patterns ok).",
-      "default" : "CYM*",
+      "description" : "Table(s) to extract (all, non-empty, glm).",
+      "default" : "glm",
       "input_type" : "str required"
     },
     "EXTRACT" :
@@ -40,7 +40,7 @@
     {
       "prompt" : "Post-processing",
       "description" : "Specify post processing to perform (e.g., network_graph, voltage_profile, write_glm)",
-      "default" : "network_graph, voltage_profile, write_glm",
+      "default" : "network_graph.py voltage_profile.py write_glm.py",
       "input_type" : "str"
     },
     "OUTPUT" :
