@@ -59,7 +59,7 @@
     {
       "prompt" : "Default nominal voltage (V)",
       "description" : "Nominal bus voltage to use when not specified in CYME model (only needed when write_glm.py is used)",
-      "input_type" : "float",
+      "input_type" : "str",
       "default" : ""
     }
   }
