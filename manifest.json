@@ -11,23 +11,23 @@
   "config" : {
     "FILES" : {
       "prompt" : "File(s) to extract",
-      "description" : "File(s) to extract (patterns ok).",
+      "description" : "File(s) to extract (default *.mdb).",
       "default" : "*.mdb",
       "input_type" : "str required"
     },
     "TABLES" :
     {
       "prompt" : "Table(s) to extract",
-      "description" : "Table(s) to extract (all, non-empty, glm).",
-      "default" : "glm",
-      "input_type" : "str required"
+      "description" : "Table(s) to extract (glm, *).",
+      "default" : "glm, *",
+      "input_type" : "enum"
     },
     "EXTRACT" :
     {
       "prompt" : "Extract condition",
       "description" : "Specify whether to extract all tables or only non-empty tables.",
-      "default" : "non-empty",
-      "input_type" : "str required"
+      "default" : "non-empty, all",
+      "input_type" : "enum"
     },
     "TIMEZONE" :
     {
@@ -40,15 +40,15 @@
     {
       "prompt" : "Post-processing",
       "description" : "Specify post processing to perform (e.g., network_graph, voltage_profile, write_glm)",
-      "default" : "network_graph.py voltage_profile.py write_glm.py",
-      "input_type" : "str"
+      "default" : "network_graph.py,voltage_profile.py,write_glm.py",
+      "input_type" : "set"
     },
     "OUTPUT" :
     {
       "prompt" : "Output files",
       "description" : "Specify output files to save (e.g., csv, zip, json, glm, png)",
-      "default" : "zip csv json glm png",
-      "input_type" : "str required"
+      "default" : "zip,csv,json,glm,png",
+      "input_type" : "set"
     }
   }
 }
