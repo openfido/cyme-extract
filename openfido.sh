@@ -130,7 +130,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 		fi
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
-		for PROC in ${make $SRCDIR/postproc/Makefile $POSTPROC | tr '\n' ' '}; do
+		for PROC in $(make $SRCDIR/postproc/Makefile $POSTPROC | tr '\n' ' '); do
 			( $SRCDIR/postproc/$PROC -i${OPENFIDO_INPUT} -o${OPENFIDO_OUTPUT} -c${OPENFIDO_INPUT}/config.csv -d${CSVDIR} </dev/null )
 		done
 	fi
