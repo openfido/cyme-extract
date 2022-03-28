@@ -19,7 +19,7 @@
     {
       "prompt" : "Table(s) to extract",
       "description" : "Table(s) to extract (patterns ok).",
-      "default" : "non-empty",
+      "default" : "CYM*",
       "input_type" : "str required"
     },
     "EXTRACT" :
