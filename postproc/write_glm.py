@@ -1967,7 +1967,7 @@ def cyme_extract_5020(network_id,network):
 	# settings from config.csv
 	glm.blank()
 	glm.comment("","Settings from 'config.csv'","")
-	define = settings["GLM_DEFINE"].split("=")
+	define = str(settings["GLM_DEFINE"]).split("=")
 	if type(define) is list and len(define) > 1:
 		glm.define(define[0].strip(),"=".join(define[1:]).strip())
 	feeder_kVLN = feeder_voltage_find(network_id)
