@@ -61,34 +61,34 @@
       "description" : "Nominal bus voltage to use when not specified in CYME model (only needed when write_glm.py is used)",
       "input_type" : "str",
       "default" : ""
-    }
+    },
     "GLM_NETWORK_PREFIX" :
     {
       "prompt" : "Network prefix",
       "description" : "Prefix to use for output filenames",
       "input_type" : "str",
-      "default" : "",
+      "default" : ""
     },
     "GLM_INCLUDE" :
     {
       "prompt" : "GLM file(s) to include (space delimited list)",
       "description" : "",
       "input_type" : "str",
-      "default" : "",
+      "default" : ""
     },
     "GLM_MODIFY" :
     {
       "prompt" : "Model fix file (CSV)",
       "description" : "Modifications to GLM object list as CSV",
       "input_type" : "str",
-      "default" : "",
+      "default" : ""
     },
     "GLM_DEFINE" :
     {
       "prompt" : "Global variable",
       "description" : "Global variable definition (e.g., NAME=VALUE)",
       "input_type" : "str",
-      "default" : "",
+      "default" : ""
     },
     "GLM_ASSUMPTIONS" :
     {
@@ -96,7 +96,7 @@
       "description" : "Specify how assumptions are handled",
       "input_type" : "enum",
       "choices" : "save,include,warn,ignore",
-      "default" : "include",
+      "default" : "include"
     }
   }
 }
