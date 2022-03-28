@@ -68,14 +68,6 @@ echo "Environment settings:"
 echo "  OPENFIDO_INPUT = $OPENFIDO_INPUT"
 echo "  OPENFIDO_OUTPUT = $OPENFIDO_OUTPUT"
 
-# install mdbtools if missing
-if [ -z "$(which mdb-export)" ]; then
-	echo "Installing mdbtools"
-	apt update -qq
-	DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends tzdata
-	apt install git mdbtools zip -yqq
-fi
-
 # work in new temporary directory
 rm -rf $TMP
 mkdir -p "$TMP"
@@ -111,27 +103,6 @@ else
 	echo "  TIMEZONE = UTC"
 	echo "  POSTPROC = "
 	echo "  OUTPUTS = ${DEFAULT_OUTPUT}"
-fi
-
-# install python3 if missing
-if [ "${POSTPROC:-}" != "" -a "$(which python3)" = "" ]; then
-	apt install python3 python3-pip -yqq
-	python3 -m pip install -r $SRCDIR/requirements.txt
-fi
-
-# install tzdata if missing and needed
-if [ -f "/usr/share/zoneinfo/${TIMEZONE:-}" ]; then
-	export DEBIAN_FRONTEND=noninteractive
-	ln -sf "/usr/share/zoneinfo/$TIMEZONE" "/etc/localtime"
-	apt-get install tzdata -yqq
-	dpkg-reconfigure --frontend noninteractive tzdata
-elif [ ! -z "${TIMEZONE:-}" ]; then
-	export DEBIAN_FRONTEND=noninteractive
-	apt-get install tzdata -yqq
-	echo "WARNING [config.csv]: TIMEZONE=$TIMEZONE is not valid (/usr/share/zoneinfo/$TIMEZONE not found)"
-	echo "  See 'timezones.csv' for a list of valid timezones"
-	echo "timezone" > timezones.csv
-	(cd /usr/share/zoneinfo/posix ; find . -type f -print ) | cut -c3- | sort >>timezones.csv
 fi
 
 # get list of required tables
