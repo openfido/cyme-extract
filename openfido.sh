@@ -82,12 +82,12 @@ done
 
 # process config file
 if [ -f "config.csv" ]; then
-	FILES=$(grep ^FILES, config.csv | cut -f2 -d,)
-	TABLES=$(grep ^TABLES, config.csv | cut -f2 -d,)
-	EXTRACT=$(grep ^EXTRACT, config.csv | cut -f2 -d,)
-	TIMEZONE=$(grep ^TIMEZONE, config.csv | cut -f2 -d,)
-	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2 -d, | tr '\n' ' ')
-	OUTPUTS=$(grep ^OUTPUTS, config.csv | cut -f2 -d,)
+	FILES=$(grep ^FILES, config.csv | cut -f2- -d, | tr ',' ' ')
+	TABLES=$(grep ^TABLES, config.csv | cut -f2- -d, | tr ',' ' ')
+	EXTRACT=$(grep ^EXTRACT, config.csv | cut -f2- -d, | tr ',' ' ')
+	TIMEZONE=$(grep ^TIMEZONE, config.csv | cut -f2- -d, | tr ',' ' ')
+	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2- -d, | tr ',' ' ')
+	OUTPUTS=$(grep ^OUTPUTS, config.csv | cut -f2- -d, | tr ',' ' ')
 	echo "Config settings:"
 	echo "  FILES = ${FILES:-*.mdb}"
 	echo "  TABLES = ${TABLES:-*}"
