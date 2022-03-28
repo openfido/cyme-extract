@@ -106,7 +106,7 @@ if [ -f "config.csv" ]; then
 else
 	echo "No 'config.csv', using default settings:"
 	echo "  FILES = *.mdb"
-	echo "  TABLES = *"
+	echo "  TABLES = all"
 	echo "  EXTRACT = all"
 	echo "  TIMEZONE = UTC"
 	echo "  POSTPROC = "
@@ -137,6 +137,8 @@ fi
 # get list of required tables
 if [ "$TABLES" = "glm" ]; then
 	TABLES=$($SRCDIR/postproc/write_glm.py --cyme-tables)
+elif [ "$TABLES" = "all" ]; then
+	TABLES=$(mdb-tables "$DATABASE")
 fi
 
 # process the input files
