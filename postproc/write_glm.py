@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/bin/python3
 """OpenFIDO write_glm post-processor script (version: develop)
 Syntax:
 	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] 
