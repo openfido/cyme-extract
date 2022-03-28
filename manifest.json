@@ -19,14 +19,16 @@
     {
       "prompt" : "Table(s) to extract",
       "description" : "Table(s) to extract (glm, *).",
-      "default" : "glm, *",
+      "choices" : "glm, *",
+      "default" : "glm",
       "input_type" : "enum"
     },
     "EXTRACT" :
     {
       "prompt" : "Extract condition",
       "description" : "Specify whether to extract all tables or only non-empty tables.",
-      "default" : "non-empty, all",
+      "choices" : "non-empty, all",
+      "default" : "non-empty",
       "input_type" : "enum"
     },
     "TIMEZONE" :
@@ -40,6 +42,7 @@
     {
       "prompt" : "Post-processing",
       "description" : "Specify post processing to perform (e.g., network_graph, voltage_profile, write_glm)",
+      "choices" : "network_graph.py,voltage_profile.py,write_glm.py",
       "default" : "network_graph.py,voltage_profile.py,write_glm.py",
       "input_type" : "set"
     },
@@ -47,7 +50,8 @@
     {
       "prompt" : "Output files",
       "description" : "Specify output files to save (e.g., csv, zip, json, glm, png)",
-      "default" : "zip,csv,json,glm,png",
+      "choices" : "zip,csv,json,glm,png",
+      "default" : "csv,json,glm,png",
       "input_type" : "set"
     }
   }
