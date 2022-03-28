@@ -53,7 +53,7 @@
       "choices" : "zip,csv,json,glm,png",
       "default" : "csv,json,glm,png",
       "input_type" : "set"
-    }
+    },
     "GLM Settings" : { "input_type" : "title" },
     "GLM_NOMINAL_VOLTAGE" :
     {
