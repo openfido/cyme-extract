@@ -131,9 +131,7 @@ elif [ ! -z "${TIMEZONE:-}" ]; then
 	echo "WARNING [config.csv]: TIMEZONE=$TIMEZONE is not valid (/usr/share/zoneinfo/$TIMEZONE not found)"
 	echo "  See 'timezones.csv' for a list of valid timezones"
 	echo "timezone" > timezones.csv
-	for TZDATA in $(find -L /usr/share/zoneinfo/posix -name '[A-Z]*' -print); do
-		echo ${TZDATA/\/usr\/share\/zoneinfo\/posix\//} >> timezones.csv
-	done
+	(cd /usr/share/zoneinfo/posix ; find . -type f -print ) | cut -c3- | sort >>timezones.csv
 fi
 
 # get list of required tables
