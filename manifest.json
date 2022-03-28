@@ -18,8 +18,8 @@
     "TABLES" :
     {
       "prompt" : "Table(s) to extract",
-      "description" : "Table(s) to extract (glm, *).",
-      "choices" : "glm, *",
+      "description" : "Table(s) to extract (glm, all).",
+      "choices" : "glm, all",
       "default" : "glm",
       "input_type" : "enum"
     },
