@@ -130,7 +130,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 		fi
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
-		for PROC in ${POSTPROC}; do
+		for PROC in ${make $SRCDIR/postproc/Makefile $POSTPROC | tr '\n' ' '}; do
 			( $SRCDIR/postproc/$PROC -i${OPENFIDO_INPUT} -o${OPENFIDO_OUTPUT} -c${OPENFIDO_INPUT}/config.csv -d${CSVDIR} </dev/null )
 		done
 	fi
@@ -149,5 +149,3 @@ for EXT in ${OUTPUTS:-${DEFAULT_OUTPUT}}; do
 		mv $FILE "$OPENFIDO_OUTPUT"
 	done
 done
-echo "Creating zipfile..."
-zip -j $OPENFIDO_OUTPUT/_Download_all.zip $OPENFIDO_OUTPUT/* -x $OPENFIDO_OUTPUT/_Download_all.zip
