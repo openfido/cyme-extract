@@ -97,6 +97,57 @@
       "input_type" : "enum",
       "choices" : "save,include,warn,ignore",
       "default" : "include"
+    },
+    "PNG Settings" : { "input_type" : "title" },
+    "PNG_FIGNAME" :
+    {
+      "prompt" : "Graph filename",
+      "description" : "Output filename for PNG graph",
+      "input_type" : "str",
+      "default" : "network_graph.png"
+    },
+    "PNG_FIGSIZE" :
+    {
+      "prompt" : "Image size (WxH)",
+      "description" : "Image dimensions in inches (width x height)",
+      "input_type" : "str",
+      "default" : "9x6"
+    },
+    "PNG_NODESIZE" :
+    {
+      "prompt" : "Node size (pixels)",
+      "description" : "Size of nodes on graph in pixels",
+      "input_type" : "str",
+      "default" : "10"
+    },
+    "PNG_NODECOLOR" :
+    {
+      "prompt" : "Node color",
+      "description" : "Node color scheme (color name or 'byphase')",
+      "input_type" : "str",
+      "default" : "byphase"
+    },
+    "PNG_FONTSIZE" :
+    {
+      "prompt" : "Font size (pts)",
+      "description" : "Size of font for labels (points)",
+      "input_type" : "str",
+      "default" : "8"
+    },
+    "PNG_ROOTNODE" :
+    {
+      "prompt" : "Root node",
+      "description" : "Name of root node (required for multipartite graph layouts)",
+      "input_type" : "str",
+      "default" : ""
+    },
+    "PNG_LAYOUT" :
+    {
+      "prompt" : "Image layout",
+      "description" : "Layout mechanism",
+      "input_type" : "enum",
+      "choices" : "nodexy,multipartite",
+      "default" : "nodexy"
     }
   }
 }
