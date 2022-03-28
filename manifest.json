@@ -19,7 +19,7 @@
     {
       "prompt" : "Table(s) to extract",
       "description" : "Table(s) to extract (patterns ok).",
-      "default" : "*",
+      "default" : "non-empty",
       "input_type" : "str required"
     },
     "EXTRACT" :
@@ -40,7 +40,7 @@
     {
       "prompt" : "Post-processing",
       "description" : "Specify post processing to perform (e.g., network_graph, voltage_profile, write_glm)",
-      "default" : "",
+      "default" : "network_graph, voltage_profile, write_glm",
       "input_type" : "str"
     },
     "OUTPUT" :
