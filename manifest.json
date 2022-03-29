@@ -57,7 +57,7 @@
     "GLM Settings" : { "input_type" : "title" },
     "GLM_NOMINAL_VOLTAGE" :
     {
-      "prompt" : "Default nominal voltage (V)",
+      "prompt" : "Default nominal voltage (kV)",
       "description" : "Nominal bus voltage to use when not specified in CYME model (only needed when write_glm.py is used)",
       "input_type" : "str",
       "default" : ""
