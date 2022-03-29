@@ -262,7 +262,8 @@ output_file = open(settings["GLM_OUTPUT"],"w")
 error_file = open(settings["ERROR_OUTPUT"],"a")
 warning_file = open(settings["WARNING_OUTPUT"],"a")
 
-default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
+# default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
+default_model_voltage = re.match("\d+[\.]?[\d+]*", settings["GLM_NOMINAL_VOLTAGE"]).group(0)
 node_extract2csv = True if settings["GLM_NODE_EXTRACT"].lower() == "true" else False
 voltage_check_fix = True if settings["GLM_VOLTAGE_FIX"].lower() == "true" else False
 phase_check_fix = True if settings["GLM_PHASE_FIX"].lower() == "true" else False
