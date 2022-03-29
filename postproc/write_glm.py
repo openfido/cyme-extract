@@ -1885,13 +1885,13 @@ def fix_unit(string,output_unit):
 		error(f"cannot convert string {string} with unit {output_unit}.", 71)
 	if "kV" in string:
 		scale = scale  * 1000.0
-		string = string.replace("kV","")
+		value_string = string.replace("kV","")
 	elif "V" in string:
 		scale = scale  * 1.0
-		string = string.replace("V","")
+		value_string = string.replace("V","")
 	else:
 		scale = scale  * 1000.0
-		string = string.replace("kV","")
+		value_string = string.replace("kV","")
 	try:
 		value = float(value_string) * scale
 		return "%.4g" % value
