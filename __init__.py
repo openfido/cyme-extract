@@ -83,15 +83,15 @@ def main(inputs,outputs,options={}):
 		POSTPROCS = []
 		OUTPUTTYPE = OUTPUTNAME.split(".")[1]
 
-	if "ERROR_OUTPUT" is settings.keys() and os.path.exists(settings["ERROR_OUTPUT"]):
+	if "ERROR_OUTPUT" in settings.keys() and os.path.exists(settings["ERROR_OUTPUT"]):
 		os.remove(settings["ERROR_OUTPUT"])
-	if "WARNING_OUTPUT" is settings.keys() and os.path.exists(settings["WARNING_OUTPUT"]):
+	if "WARNING_OUTPUT" in settings.keys() and os.path.exists(settings["WARNING_OUTPUT"]):
 		os.remove(settings["WARNING_OUTPUT"])
-	if "GLM_OUTPUT" is settings.keys() and os.path.exists(settings["GLM_OUTPUT"]):
+	if "GLM_OUTPUT" in settings.keys() and os.path.exists(settings["GLM_OUTPUT"]):
 		os.remove(settings["GLM_OUTPUT"])
-	if "VOL_OUTPUT" is settings.keys() and os.path.exists(settings["VOL_OUTPUT"]):
+	if "VOL_OUTPUT" in settings.keys() and os.path.exists(settings["VOL_OUTPUT"]):
 		os.remove(settings["VOL_OUTPUT"])
-	if "PNG_OUTPUT" is settings.keys() and os.path.exists(settings["PNG_OUTPUT"]):
+	if "PNG_OUTPUT" in settings.keys() and os.path.exists(settings["PNG_OUTPUT"]):
 		os.remove(settings["PNG_OUTPUT"])
 
 	PROCCONFIG = {
