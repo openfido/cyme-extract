@@ -95,7 +95,7 @@
       "prompt" : "Assumption handling",
       "description" : "Specify how assumptions are handled",
       "input_type" : "enum",
-      "choices" : "save,include,warn,ignore",
+      "choices" : "save, include, warn, ignore",
       "default" : "include"
     },
     "PNG Settings" : { "input_type" : "title" },
@@ -146,7 +146,7 @@
       "prompt" : "Image layout",
       "description" : "Layout mechanism",
       "input_type" : "enum",
-      "choices" : "nodexy,multipartite",
+      "choices" : "nodexy, multipartite",
       "default" : "nodexy"
     }
   }
