@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/bin/python3
 """OpenFIDO write_glm post-processor script (version: develop)
 Syntax:
 	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] 
@@ -262,7 +262,8 @@ output_file = open(settings["GLM_OUTPUT"],"w")
 error_file = open(settings["ERROR_OUTPUT"],"a")
 warning_file = open(settings["WARNING_OUTPUT"],"a")
 
-default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
+# default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
+default_model_voltage = re.match("\d+[\.]?[\d+]*", settings["GLM_NOMINAL_VOLTAGE"]).group(0)
 node_extract2csv = True if settings["GLM_NODE_EXTRACT"].lower() == "true" else False
 voltage_check_fix = True if settings["GLM_VOLTAGE_FIX"].lower() == "true" else False
 phase_check_fix = True if settings["GLM_PHASE_FIX"].lower() == "true" else False
@@ -1888,6 +1889,9 @@ def fix_unit(string,output_unit):
 	elif "V" in string:
 		scale = scale  * 1.0
 		value_string = string.replace("V","")
+	else:
+		scale = scale  * 1000.0
+		value_string = string.replace("kV","")
 	try:
 		value = float(value_string) * scale
 		return "%.4g" % value
@@ -1967,7 +1971,7 @@ def cyme_extract_5020(network_id,network):
 	# settings from config.csv
 	glm.blank()
 	glm.comment("","Settings from 'config.csv'","")
-	define = settings["GLM_DEFINE"].split("=")
+	define = str(settings["GLM_DEFINE"]).split("=")
 	if type(define) is list and len(define) > 1:
 		glm.define(define[0].strip(),"=".join(define[1:]).strip())
 	feeder_kVLN = feeder_voltage_find(network_id)

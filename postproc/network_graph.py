@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/local/bin/python3
 """Draw network graph
 
 Configuration settings (config.csv):

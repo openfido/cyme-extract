@@ -1,7 +1,7 @@
 {
   "name" : "CYME to GridLAB-D converter",
   "description" : "Extract CYME data and create GridLAB-D model",
-  "docker" : "debian:11",
+  "docker" : "slacgismo/gridlabd:latest",
   "git" : "https://github.com/openfido/cyme-extract.git",
   "branch" : "main",
   "script" : "openfido.sh",
@@ -11,23 +11,25 @@
   "config" : {
     "FILES" : {
       "prompt" : "File(s) to extract",
-      "description" : "File(s) to extract (patterns ok).",
+      "description" : "File(s) to extract (default *.mdb).",
       "default" : "*.mdb",
       "input_type" : "str required"
     },
     "TABLES" :
     {
       "prompt" : "Table(s) to extract",
-      "description" : "Table(s) to extract (patterns ok).",
-      "default" : "*",
-      "input_type" : "str required"
+      "description" : "Table(s) to extract (glm, all).",
+      "choices" : "glm, all",
+      "default" : "glm",
+      "input_type" : "enum"
     },
     "EXTRACT" :
     {
       "prompt" : "Extract condition",
       "description" : "Specify whether to extract all tables or only non-empty tables.",
+      "choices" : "non-empty, all",
       "default" : "non-empty",
-      "input_type" : "str required"
+      "input_type" : "enum"
     },
     "TIMEZONE" :
     {
@@ -40,15 +42,112 @@
     {
       "prompt" : "Post-processing",
       "description" : "Specify post processing to perform (e.g., network_graph, voltage_profile, write_glm)",
-      "default" : "",
-      "input_type" : "str"
+      "choices" : "network_graph.py,voltage_profile.py,write_glm.py",
+      "default" : "network_graph.py,voltage_profile.py,write_glm.py",
+      "input_type" : "set"
     },
-    "OUTPUT" :
+    "OUTPUTS" :
     {
       "prompt" : "Output files",
       "description" : "Specify output files to save (e.g., csv, zip, json, glm, png)",
-      "default" : "zip csv json glm png",
-      "input_type" : "str required"
+      "choices" : "zip,csv,json,glm,png",
+      "default" : "csv,json,glm,png",
+      "input_type" : "set"
+    },
+    "GLM Settings" : { "input_type" : "title" },
+    "GLM_NOMINAL_VOLTAGE" :
+    {
+      "prompt" : "Default nominal voltage (kV)",
+      "description" : "Nominal bus voltage to use when not specified in CYME model (only needed when write_glm.py is used)",
+      "input_type" : "str",
+      "default" : ""
+    },
+    "GLM_NETWORK_PREFIX" :
+    {
+      "prompt" : "Network prefix",
+      "description" : "Prefix to use for output filenames",
+      "input_type" : "str",
+      "default" : ""
+    },
+    "GLM_INCLUDE" :
+    {
+      "prompt" : "GLM file(s) to include (space delimited list)",
+      "description" : "",
+      "input_type" : "str",
+      "default" : ""
+    },
+    "GLM_MODIFY" :
+    {
+      "prompt" : "Model fix file (CSV)",
+      "description" : "Modifications to GLM object list as CSV",
+      "input_type" : "str",
+      "default" : ""
+    },
+    "GLM_DEFINE" :
+    {
+      "prompt" : "Global variable",
+      "description" : "Global variable definition (e.g., NAME=VALUE)",
+      "input_type" : "str",
+      "default" : ""
+    },
+    "GLM_ASSUMPTIONS" :
+    {
+      "prompt" : "Assumption handling",
+      "description" : "Specify how assumptions are handled",
+      "input_type" : "enum",
+      "choices" : "save,include,warn,ignore",
+      "default" : "include"
+    },
+    "PNG Settings" : { "input_type" : "title" },
+    "PNG_FIGNAME" :
+    {
+      "prompt" : "Graph filename",
+      "description" : "Output filename for PNG graph",
+      "input_type" : "str",
+      "default" : "network_graph.png"
+    },
+    "PNG_FIGSIZE" :
+    {
+      "prompt" : "Image size (WxH)",
+      "description" : "Image dimensions in inches (width x height)",
+      "input_type" : "str",
+      "default" : "9x6"
+    },
+    "PNG_NODESIZE" :
+    {
+      "prompt" : "Node size (pixels)",
+      "description" : "Size of nodes on graph in pixels",
+      "input_type" : "str",
+      "default" : "10"
+    },
+    "PNG_NODECOLOR" :
+    {
+      "prompt" : "Node color",
+      "description" : "Node color scheme (color name or 'byphase')",
+      "input_type" : "str",
+      "default" : "byphase"
+    },
+    "PNG_FONTSIZE" :
+    {
+      "prompt" : "Font size (pts)",
+      "description" : "Size of font for labels (points)",
+      "input_type" : "str",
+      "default" : "8"
+    },
+    "PNG_ROOTNODE" :
+    {
+      "prompt" : "Root node",
+      "description" : "Name of root node (required for multipartite graph layouts)",
+      "input_type" : "str",
+      "default" : ""
+    },
+    "PNG_LAYOUT" :
+    {
+      "prompt" : "Image layout",
+      "description" : "Layout mechanism",
+      "input_type" : "enum",
+      "choices" : "nodexy,multipartite",
+      "default" : "nodexy"
     }
   }
 }

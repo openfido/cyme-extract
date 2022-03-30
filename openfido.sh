@@ -68,14 +68,6 @@ echo "Environment settings:"
 echo "  OPENFIDO_INPUT = $OPENFIDO_INPUT"
 echo "  OPENFIDO_OUTPUT = $OPENFIDO_OUTPUT"
 
-# install mdbtools if missing
-if [ -z "$(which mdb-export)" ]; then
-	echo "Installing mdbtools"
-	apt update -qq
-	DEBIAN_FRONTEND=noninteractive apt-get install -yqq --no-install-recommends tzdata
-	apt install git mdbtools zip -yqq
-fi
-
 # work in new temporary directory
 rm -rf $TMP
 mkdir -p "$TMP"
@@ -93,12 +85,12 @@ done
 
 # process config file
 if [ -f "config.csv" ]; then
-	FILES=$(grep ^FILES, config.csv | cut -f2 -d,)
-	TABLES=$(grep ^TABLES, config.csv | cut -f2 -d,)
-	EXTRACT=$(grep ^EXTRACT, config.csv | cut -f2 -d,)
-	TIMEZONE=$(grep ^TIMEZONE, config.csv | cut -f2 -d,)
-	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2 -d, | tr '\n' ' ')
-	OUTPUTS=$(grep ^OUTPUTS, config.csv | cut -f2 -d,)
+	FILES=$(grep ^FILES, config.csv | cut -f2- -d, | tr ',' ' ')
+	TABLES=$(grep ^TABLES, config.csv | cut -f2- -d, | tr ',' ' ')
+	EXTRACT=$(grep ^EXTRACT, config.csv | cut -f2- -d, | tr ',' ' ')
+	TIMEZONE=$(grep ^TIMEZONE, config.csv | cut -f2- -d, | tr ',' ' ')
+	POSTPROC=$(grep ^POSTPROC, config.csv | cut -f2- -d, | tr ',' ' ')
+	OUTPUTS=$(grep ^OUTPUTS, config.csv | cut -f2- -d, | tr ',' ' ')
 	echo "Config settings:"
 	echo "  FILES = ${FILES:-*.mdb}"
 	echo "  TABLES = ${TABLES:-*}"
@@ -109,39 +101,18 @@ if [ -f "config.csv" ]; then
 else
 	echo "No 'config.csv', using default settings:"
 	echo "  FILES = *.mdb"
-	echo "  TABLES = *"
+	echo "  TABLES = all"
 	echo "  EXTRACT = all"
 	echo "  TIMEZONE = UTC"
 	echo "  POSTPROC = "
 	echo "  OUTPUTS = ${DEFAULT_OUTPUT}"
 fi
 
-# install python3 if missing
-if [ "${POSTPROC:-}" != "" -a "$(which python3)" = "" ]; then
-	apt install python3 python3-pip -yqq
-	python3 -m pip install -r $SRCDIR/requirements.txt
-fi
-
-# install tzdata if missing and needed
-if [ -f "/usr/share/zoneinfo/${TIMEZONE:-}" ]; then
-	export DEBIAN_FRONTEND=noninteractive
-	ln -sf "/usr/share/zoneinfo/$TIMEZONE" "/etc/localtime"
-	apt-get install tzdata -yqq
-	dpkg-reconfigure --frontend noninteractive tzdata
-elif [ ! -z "${TIMEZONE:-}" ]; then
-	export DEBIAN_FRONTEND=noninteractive
-	apt-get install tzdata -yqq
-	echo "WARNING [config.csv]: TIMEZONE=$TIMEZONE is not valid (/usr/share/zoneinfo/$TIMEZONE not found)"
-	echo "  See 'timezones.csv' for a list of valid timezones"
-	echo "timezone" > timezones.csv
-	for TZDATA in $(find -L /usr/share/zoneinfo/posix -name '[A-Z]*' -print); do
-		echo ${TZDATA/\/usr\/share\/zoneinfo\/posix\//} >> timezones.csv
-	done
-fi
-
 # get list of required tables
 if [ "$TABLES" = "glm" ]; then
 	TABLES=$($SRCDIR/postproc/write_glm.py --cyme-tables)
+elif [ "$TABLES" = "all" ]; then
+	TABLES=$(mdb-tables "$DATABASE")
 fi
 
 # process the input files
@@ -162,7 +133,7 @@ for DATABASE in $(ls -1 *.mdb | grep ${FILES:-.\*}); do
 		fi
 	done
 	if [ "${POSTPROC:-}" != "" ]; then
-		for PROC in ${POSTPROC}; do
+		for PROC in $(make -s -f $SRCDIR/postproc/Makefile $POSTPROC | tr '\n' ' '); do
 			( $SRCDIR/postproc/$PROC -i${OPENFIDO_INPUT} -o${OPENFIDO_OUTPUT} -c${OPENFIDO_INPUT}/config.csv -d${CSVDIR} </dev/null )
 		done
 	fi
@@ -181,5 +152,3 @@ for EXT in ${OUTPUTS:-${DEFAULT_OUTPUT}}; do
 		mv $FILE "$OPENFIDO_OUTPUT"
 	done
 done
-echo "Creating zipfile..."
-zip -j $OPENFIDO_OUTPUT/_Download_all.zip $OPENFIDO_OUTPUT/* -x $OPENFIDO_OUTPUT/_Download_all.zip
