@@ -42,16 +42,16 @@
     {
       "prompt" : "Post-processing",
       "description" : "Specify post processing to perform (e.g., network_graph, voltage_profile, write_glm)",
-      "choices" : "network_graph.py,voltage_profile.py,write_glm.py",
-      "default" : "network_graph.py,voltage_profile.py,write_glm.py",
+      "choices" : "network_graph.py, voltage_profile.py, write_glm.py",
+      "default" : "network_graph.py, voltage_profile.py, write_glm.py",
       "input_type" : "set"
     },
     "OUTPUTS" :
     {
       "prompt" : "Output files",
       "description" : "Specify output files to save (e.g., csv, zip, json, glm, png)",
-      "choices" : "zip,csv,json,glm,png",
-      "default" : "csv,json,glm,png",
+      "choices" : "zip, csv, json, glm, png",
+      "default" : "csv, json, glm, png",
       "input_type" : "set"
     },
     "GLM Settings" : { "input_type" : "title" },
@@ -95,7 +95,7 @@
       "prompt" : "Assumption handling",
       "description" : "Specify how assumptions are handled",
       "input_type" : "enum",
-      "choices" : "save,include,warn,ignore",
+      "choices" : "save, include, warn, ignore",
       "default" : "include"
     },
     "PNG Settings" : { "input_type" : "title" },
@@ -146,7 +146,7 @@
       "prompt" : "Image layout",
       "description" : "Layout mechanism",
       "input_type" : "enum",
-      "choices" : "nodexy,multipartite",
+      "choices" : "nodexy, multipartite",
       "default" : "nodexy"
     }
   }
