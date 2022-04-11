@@ -71,16 +71,16 @@
     },
     "GLM_INCLUDE" :
     {
-      "prompt" : "GLM file(s) to include (space delimited list)",
-      "description" : "",
-      "input_type" : "str",
+      "prompt" : "Include files (GLM)",
+      "description" : "GLM file(s) to include",
+      "input_type" : "upload",
       "default" : ""
     },
     "GLM_MODIFY" :
     {
       "prompt" : "Model fix file (CSV)",
       "description" : "Modifications to GLM object list as CSV",
-      "input_type" : "str",
+      "input_type" : "upload",
       "default" : ""
     },
     "GLM_DEFINE" :
