@@ -234,7 +234,7 @@ def profile(objects,root,pos=0):
 with_nodes = False
 resolution = "300"
 size = "300x200"
-limit = 1.1
+limit = 0.075
 if network_select is None:
 	network_list = ["ALL"]
 else:
@@ -268,8 +268,8 @@ for network_id in network_list:
 	plt.grid()
 	#plt.legend(["A","B","C"])
 	#plt.tight_layout()
-	if limit:
-		plt.ylim([1-limit,1+limit])
+	# if limit:
+	# 	plt.ylim([1-limit,1+limit])
 	plt.savefig(f"{output_folder}/{filename_png}", dpi=int(resolution))
 
 
