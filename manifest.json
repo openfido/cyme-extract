@@ -85,8 +85,8 @@
     },
     "GLM_DEFINE" :
     {
-      "prompt" : "Global variable",
-      "description" : "Global variable definition (e.g., NAME=VALUE)",
+      "prompt" : "Command options",
+      "description" : "Additional command line options and globals (e.g., '-D NAME=VALUE')",
       "input_type" : "str",
       "default" : ""
     },
