@@ -10,10 +10,10 @@
   },
   "config" : {
     "FILES" : {
-      "prompt" : "File(s) to extract",
-      "description" : "File(s) to extract (default *.mdb).",
+      "prompt" : "CYME database(s)",
+      "description" : "CYME database file(s) to extract (default *.mdb).",
       "default" : "*.mdb",
-      "input_type" : "str required"
+      "input_type" : "upload required"
     },
     "TABLES" :
     {
@@ -71,22 +71,22 @@
     },
     "GLM_INCLUDE" :
     {
-      "prompt" : "GLM file(s) to include (space delimited list)",
-      "description" : "",
-      "input_type" : "str",
+      "prompt" : "Include files (GLM)",
+      "description" : "GLM file(s) to include",
+      "input_type" : "upload",
       "default" : ""
     },
     "GLM_MODIFY" :
     {
       "prompt" : "Model fix file (CSV)",
       "description" : "Modifications to GLM object list as CSV",
-      "input_type" : "str",
+      "input_type" : "upload",
       "default" : ""
     },
     "GLM_DEFINE" :
     {
-      "prompt" : "Global variable",
-      "description" : "Global variable definition (e.g., NAME=VALUE)",
+      "prompt" : "Command options",
+      "description" : "Additional command line options and globals (e.g., '-D NAME=VALUE')",
       "input_type" : "str",
       "default" : ""
     },

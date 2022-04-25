@@ -78,6 +78,9 @@ echo "Copying files from $OPENFIDO_INPUT..."
 for FILE in $(ls -1 $OPENFIDO_INPUT/*); do
 	echo "  $FILE ($(wc -c $FILE | awk '{print $1}') bytes)"
 	cp -R "$FILE" .
+	if [ "${FILE##*.}" == "gz" ]; then
+		gunzip ${FILE%.*}
+	fi
 done
 
 # process config file
