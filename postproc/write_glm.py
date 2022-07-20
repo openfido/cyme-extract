@@ -2146,7 +2146,7 @@ def cyme_extract_5020(network_id,network):
 			section_id = all_section_device[all_section_device["DeviceNumber"] == cyme_data['DeviceNumber']]["SectionId"].values
 			cap_section = all_section[all_section["SectionId"] == section_id[0]]
 			cyme_id = cyme_data['DeviceNumber']
-			glm.add("capacitor", cyme_id, cyme_data, version=4700,node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "cap_section": cap_section})
+			glm.add("capacitor", cyme_id, cyme_data, version=5020,node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "cap_section": cap_section})
 	except Exception as err:
 		exception_type = type(err).__name__
 		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "shuntcapacitor".')
@@ -2155,7 +2155,7 @@ def cyme_extract_5020(network_id,network):
 	try:
 		for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
 			cyme_id = cyme_data['DeviceNumber']
-			glm.add("switch", cyme_id, cyme_data, version=4700)
+			glm.add("switch", cyme_id, cyme_data, version=5020)
 	except Exception as err:
 		exception_type = type(err).__name__
 		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "switch".')
@@ -2423,7 +2423,6 @@ def cyme_extract_4700(network_id,network):
 	glm.phase_checks()
 	glm.voltage_checks(feeder_kVLN)
 	glm.object_checks()
-	glm.name_check()
 	glm.name_check()
 
 	# generate coordinate file
