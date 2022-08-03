@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/local/python3
 """Draw network graph
 
 Configuration settings (config.csv):
@@ -53,7 +53,7 @@ DEBUG = False
 QUIET = False
 VERBOSE = False
 
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:g:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file=","generated="])
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:g:C:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file=","generated=","coordinate="])
 
 #
 # Warning/error/help handling
@@ -135,6 +135,8 @@ for opt, arg in opts:
 		pass
 	elif opt in ("-g", "--generated"):
 		generated_file = arg.strip()
+	elif opt in ("-C", "--coodinate"):
+		pass
 	else:
 		error(f"{opt}={arg} is not a valid option", 5);
 if input_folder == None:
@@ -183,10 +185,10 @@ for name, data in config.iterrows():
 del config
 
 # load the model
-network = pd.read_csv(f"{data_folder}/network.csv")
-nodes = pd.read_csv(f"{data_folder}/node.csv")
-section = pd.read_csv(f"{data_folder}/section.csv")
-
+network = pd.read_csv(f"{data_folder}/network.csv",low_memory=False)
+nodes = pd.read_csv(f"{data_folder}/node.csv",low_memory=False)
+headnodes = pd.read_csv(f"{data_folder}/headnode.csv",low_memory=False)
+section = pd.read_csv(f"{data_folder}/section.csv",low_memory=False)
 # generate the graph
 if network_select is None:
 	network_list = ["ALL"]
@@ -196,11 +198,18 @@ network_count = 0
 for network_id in network_list:
 	graph = nx.Graph()
 	labels = {}
+	network_headnode = []
 	network_count += 1
+	for index, headnode in headnodes.iterrows():
+		if network_id == headnode["NetworkId"]:
+			network_headnode.append(headnode["NodeId"])
+	if len(network_headnode) > 1:
+		error(f"network {network_id} has multiple headnodes", 3)
 	for index, node in nodes.iterrows():
-		if network_select is None or network_id == node["NetworkId"]:
+		if network_select is None or network_id == node["NetworkId"] or node["NodeId"] in network_headnode:
 			labels[node["NodeId"]] = f"{node['NodeId']}\n"
 			if settings["PNG_LAYOUT"] == "nodexy":
+				# print(f"{node['NodeId']} is ({node['X']},{node['Y']})")
 				graph.add_node(node["NodeId"],pos=(node["X"],node["Y"]))
 			elif settings["PNG_LAYOUT"] == "multipartite":
 				if settings["PNG_ROOTNODE"] == "":
@@ -217,17 +226,6 @@ for network_id in network_list:
 			fnode = edge["FromNodeId"]
 			tnode = edge["ToNodeId"]
 			graph.add_edge(str(fnode),str(tnode),color=color[phase],weight=weight[phase],phase=phase)
-	if not settings["PNG_NODECOLOR"] or settings["PNG_NODECOLOR"] == "byphase":
-		node_colors = {}
-		for node in graph.nodes:
-			phase = 0
-			for edge in graph.edges(node):
-				phase |= graph.edges[edge]["phase"]
-			node_colors[node] = {"color":color[phase]}
-		nx.set_node_attributes(graph,node_colors)
-		node_colors = nx.get_node_attributes(graph,"color").values()
-	else:
-		node_colors = settings["PNG_NODECOLOR"]
 
 	# handle multipartite graph
 	if settings["PNG_LAYOUT"] == "multipartite":
@@ -253,16 +251,40 @@ for network_id in network_list:
 	# output to PNG
 	size = settings["PNG_FIGSIZE"].split("x")
 	plt.figure(figsize = (int(size[0]),int(size[1])))
-	edges = graph.edges()
-	colors = [graph[u][v]["color"] for u,v in edges]
-	weights = [graph[u][v]["weight"] for u,v in edges]
 	if settings["PNG_LAYOUT"] == "nodexy":
 		pos = nx.get_node_attributes(graph,"pos")
+		# check node positions
+		for node in list(graph.nodes()):
+			if node not in pos.keys():
+				warning(f"cannot find position data for node '{node}'")
+				if len(graph.edges(node)) > 0:
+					print()
+					for remove_edge in list(graph.edges(node)):
+						graph.remove_edge(*remove_edge)
+				graph.remove_node(node)
+				if node in labels.keys():
+					del labels[node]
 	elif hasattr(nx,settings["PNG_LAYOUT"]+"_layout"):
 		call = getattr(nx,settings["PNG_LAYOUT"]+"_layout")
 		pos = call(graph,**layout_options)
 	else:
 		error("LAYOUT={settings['LAYOUT']} is invalid", 10)
+	
+	edges = graph.edges()
+	colors = [graph[u][v]["color"] for u,v in edges]
+	weights = [graph[u][v]["weight"] for u,v in edges]
+	if not settings["PNG_NODECOLOR"] or settings["PNG_NODECOLOR"] == "byphase":
+		node_colors = {}
+		for node in graph.nodes:
+			phase = 0
+			for edge in graph.edges(node):
+				phase |= graph.edges[edge]["phase"]
+			node_colors[node] = {"color":color[phase]}
+		nx.set_node_attributes(graph,node_colors)
+		node_colors = nx.get_node_attributes(graph,"color").values()
+	else:
+		node_colors = settings["PNG_NODECOLOR"]
+
 	try:
 		nx.draw(graph, pos,
 			with_labels = True,
