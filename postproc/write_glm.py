@@ -60,7 +60,7 @@ cyme_tables_required = [
 	"CYMBREAKER","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
 	"CYMCTYPEFILTER","CYMTRANSFORMERBYPHASE","CYMRECLOSER","CYMEQOVERHEADLINE",
 	"CYMSOURCE","CYMEQSHUNTCAPACITOR","CYMPHOTOVOLTAIC","CYMDGGENERATIONMODEL",
-	"CYMCONVERTER"]
+	"CYMCONVERTER","CYMEQAVERAGEGEOARRANGEMENT"]
 
 #
 # Argument parsing
@@ -756,7 +756,7 @@ class GLM:
 			self.write(f"modify {object}.{property} {value};{comment}")
 
 	def assume(self,objname,propname,value,remark=""):
-		self.assumptions.append([objname,propname,value,remark])
+		self.assumptions.append([fix_name(objname),propname,value,remark])
 
 	def close(self):
 		
@@ -781,7 +781,7 @@ class GLM:
 				with open(f"{output_folder}/{filename}","w") as fh:
 					print("// Assumptions for GLM conversion from database {cyme_mdbname} network {network_id}",file=fh)
 					for row in self.assumptions:
-						print(f"modify {row[0]}.{row[1]} \"{row[2]}\"; // {row[3]}",file=fh)
+						print(f"modify {fix_name(row[0])}.{row[1]} \"{row[2]}\"; // {row[3]}",file=fh)
 			elif settings["GLM_ASSUMPTIONS"] == "include":
 				self.blank()
 				self.comment("","Assumptions","")
@@ -1120,20 +1120,41 @@ class GLM:
 			spacing = None
 			if 'eqgeometricalarrangement' in cyme_equipment_table.keys():
 				spacing = table_get(cyme_equipment_table['eqgeometricalarrangement'],spacing_id,None,'EquipmentId')
+				if spacing is None and 'eqaveragegeoarrangement' in cyme_equipment_table.keys():
+					spacing = table_get(cyme_equipment_table['eqaveragegeoarrangement'],spacing_id,None,'EquipmentId')
 				if spacing is None:
 					warning(f"cannot add cable spacing {spacing_id} for version {version}, use default settings")
 					spacing = table_get(cyme_equipment_table['eqgeometricalarrangement'],"DEFAULT",None,'EquipmentId')
 			elif 'eqgeometricalarrangement' in cyme_table.keys():
 				spacing = table_get(cyme_table['eqgeometricalarrangement'],spacing_id,None,'EquipmentId')
+				if spacing is None and 'eqaveragegeoarrangement' in cyme_table.keys():
+					spacing = table_get(cyme_table['eqaveragegeoarrangement'],spacing_id,None,'EquipmentId')
 				if spacing is None:
 					warning(f"cannot add cable spacing {spacing_id} for version {version}, use default settings")
 					spacing = table_get(cyme_table['eqgeometricalarrangement'],"DEFAULT",None,'EquipmentId')
 			else:
-				# use default settings. TODO
 				error(f"table 'eqgeometricalarrangement' for cable spacing is missing", 23)
+			print(spacing.index)
 			if spacing is None:
 				error(f"cannot add cable spacing {spacing_id} for version {version}", 24)
-			else:
+			elif "GMDPhaseToPhase" in spacing.index:
+				ABC2ABC = float(spacing["GMDPhaseToPhase"])
+				ABC2N = float(spacing["GMDPhaseToNeutral"])
+				ABC2E = float(spacing["AveragePhaseConductorHeight"])
+				N2E = float(spacing["AverageNeutralConductorHeight"])
+				self.object("line_spacing",spacing_name,{
+					"distance_AB" : "%.2f m"%ABC2ABC,
+					"distance_AC" : "%.2f m"%ABC2ABC,
+					"distance_BC" : "%.2f m"%ABC2ABC,
+					"distance_AN" : "%.2f m"%ABC2N,
+					"distance_BN" : "%.2f m"%ABC2N,
+					"distance_CN" : "%.2f m"%ABC2N,
+					"distance_AE" : "%.2f m"%ABC2E,
+					"distance_BE" : "%.2f m"%ABC2E,
+					"distance_CE" : "%.2f m"%ABC2E,
+					"distance_NE" : "%.2f m"%N2E,
+					})
+			elif "ConductorA_Horizontal" in spacing.index:
 				Ax = float(spacing["ConductorA_Horizontal"])
 				Ay = float(spacing["ConductorA_Vertical"])
 				Bx = float(spacing["ConductorB_Horizontal"])
@@ -1160,6 +1181,8 @@ class GLM:
 					"distance_CE" : "%.2f m"%Cy,
 					"distance_NE" : "%.2f m"%Ny,
 					})
+			else:
+				error(f"data is missing for cable spacing {spacing_id}", 25)
 		return spacing_name
 
 	# line configuration library object
@@ -1347,7 +1370,7 @@ class GLM:
 		ConnectionConfig = int(capacitor["ConnectionConfiguration"]) # 2 for delta and else for wye
 		capacitor_name = self.name(capacitor_id,"capacitor")
 		control = "MANUAL"
-		self.assume(capacitor_name,"control",control,f"capacitor {capacitor_id} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
+		self.assume(capacitor_name,"control",control,f"capacitor {fix_name(capacitor_id)} does not specify a control strategy, valid options are 'CURRENT', 'VARVOLT', 'VOLT', 'VAR', or 'MANUAL'")
 
 		if "Phase" in capacitor.keys():
 			phase = cyme_phase_name[int(capacitor["Phase"])]
@@ -1455,17 +1478,17 @@ class GLM:
 		configuration_name = self.name([nominal_rating,primary_voltage,secondary_voltage,"R%.4g"%(r),"X%4g"%(x)], "transformer_configuration")
 		if primary_voltage == secondary_voltage:
 			secondary_voltage = "%.4gkV" % ((SecondaryVoltageKVLL+0.001)/sqrt(3.0))
-			self.assume(configuration_name,"secondary_voltage",secondary_voltage,f"transformer {transformer_id} primary voltage is the same as secondary voltage")
+			self.assume(configuration_name,"secondary_voltage",secondary_voltage,f"transformer {fix_name(transformer_id)} primary voltage is the same as secondary voltage")
 		if r == 0.0:
 			r = 0.000333
 			x = 0.00222
-			self.assume(configuration_name,"resistance",r,f"transformer {transformer_id} XRRatio is zero")
-			self.assume(configuration_name,"reactance",x,f"transformer {transformer_id} XRRatio is zero")
+			self.assume(configuration_name,"resistance",r,f"transformer {fix_name(transformer_id)} XRRatio is zero")
+			self.assume(configuration_name,"reactance",x,f"transformer {fix_name(transformer_id)} XRRatio is zero")
 
 		connect_type = "WYE_WYE"
-		self.assume(configuration_name,"connect_type",connect_type,f"transformer '{transformer_id}' does not specify connection type")
+		self.assume(configuration_name,"connect_type",connect_type,f"transformer '{fix_name(transformer_id)}' does not specify connection type")
 		install_type = "PADMOUNT"
-		self.assume(configuration_name,"install_type",install_type,f"transformer '{transformer_id}' does not specify install type")
+		self.assume(configuration_name,"install_type",install_type,f"transformer '{fix_name(transformer_id)}' does not specify install type")
 
 		self.object("transformer_configuration", configuration_name, {
 			"connect_type" : "WYE_WYE",
@@ -1514,16 +1537,16 @@ class GLM:
 				configuration_name = self.name([nominal_rating,primary_voltage,secondary_voltage,"R%.4g"%(r),"X%4g"%(x),cyme_phase_name[n]], "transformer_configuration")
 				if primary_voltage == secondary_voltage:
 					secondary_voltage = "%.4gkV" % ((SecondaryVoltageKVLL+0.001)/sqrt(3.0))
-					self.assume(configuration_name,"secondary_voltage",secondary_voltage,f"transformer {transformer_id} primary voltage is the same as secondary voltage")
+					self.assume(configuration_name,"secondary_voltage",secondary_voltage,f"transformer {fix_name(transformer_id)} primary voltage is the same as secondary voltage")
 				if r == 0.0:
 					r = 0.000333
 					x = 0.00222
-					self.assume(configuration_name,"resistance",r,f"transformer {transformer_id} XRRatio is zero")
-					self.assume(configuration_name,"reactance",x,f"transformer {transformer_id} XRRatio is zero")
+					self.assume(configuration_name,"resistance",r,f"transformer {fix_name(transformer_id)} XRRatio is zero")
+					self.assume(configuration_name,"reactance",x,f"transformer {fix_name(transformer_id)} XRRatio is zero")
 				connect_type = "SINGLE_PHASE"
-				self.assume(configuration_name,"connect_type",connect_type,f"transformer '{transformer_id}' does not specify connection type")
+				self.assume(configuration_name,"connect_type",connect_type,f"transformer '{fix_name(transformer_id)}' does not specify connection type")
 				install_type = "PADMOUNT"
-				self.assume(configuration_name,"install_type",install_type,f"transformer '{transformer_id}' does not specify install type")
+				self.assume(configuration_name,"install_type",install_type,f"transformer '{fix_name(transformer_id)}' does not specify install type")
 
 				self.object("transformer_configuration", configuration_name, {
 					"connect_type" : connect_type,
@@ -1587,10 +1610,10 @@ class GLM:
 		band_width = "%.1gV" % (BandWidth)
 
 		configuration_name = self.name([regulator_id,band_width,time_delay],"regulator_configuration")
-		self.assume(configuration_name,"connect_type",connect_type,f"regulator '{regulator_id}' does not specify connection type")
-		self.assume(configuration_name,"Control",Control,f"regulator '{regulator_id}' does not specify control type")
-		self.assume(configuration_name,"time_delay",time_delay,f"regulator '{regulator_id}' does not specify time delay")
-		self.assume(configuration_name,"band_center",band_center,f"regulator '{regulator_id}' does not specify band center")
+		self.assume(configuration_name,"connect_type",connect_type,f"regulator '{fix_name(regulator_id)}' does not specify connection type")
+		self.assume(configuration_name,"Control",Control,f"regulator '{fix_name(regulator_id)}' does not specify control type")
+		self.assume(configuration_name,"time_delay",time_delay,f"regulator '{fix_name(regulator_id)}' does not specify time delay")
+		self.assume(configuration_name,"band_center",band_center,f"regulator '{fix_name(regulator_id)}' does not specify band center")
 
 		self.object("regulator_configuration", configuration_name, {
 			"connect_type" : connect_type,
@@ -1610,8 +1633,9 @@ class GLM:
 
 		link_name = self.name(regulator_id,"link")
 		regulator_name = self.name(link_name,"regulator")
+		regulator_name = fix_name(regulator_name)
 		sense_node = self.objects[link_name]["to"]
-		self.assume(regulator_name,"sense_node",sense_node,f"regulator '{regulator_id}' does not specify sense node")
+		self.assume(regulator_name,"sense_node",sense_node,f"regulator '{fix_name(regulator_id)}' does not specify sense node")
 		return self.object("regulator", self.name(regulator_id,"link"), {
 			"configuration" : configuration_name,
 			"sense_node" : sense_node,
@@ -1641,7 +1665,7 @@ class GLM:
 		meter_name = self.name(photovoltaic_id,"meter")
 		phases = cyme_phase_name[int(photovoltaic["Phase"])]
 		panel_efficiency = 0.2
-		panel_area = math.ceil(13.3*rated_power/panel_efficiency)
+		panel_area = math.ceil(13.3*rated_power/panel_efficiency) # got from NG converter, double-check is needed
 		pv_dict = {
 			"parent" : inverter_name,
 			"generator_status" : "ONLINE",
@@ -1914,26 +1938,42 @@ class GLM:
 
 	def voltage_checks(self, nominal_voltage): # Check transformer primary/secondary voltage
 		check_done = False
+		check_done_count = 0
 		while not check_done:
 			check_done = True
+			check_done_count += 1
+			if check_done_count > 1e8:
+				error(f"the voltage_checks may suck in a dead loop.", 65)
 			for name, data in self.objects.items():
 				if "class" in data.keys() and (data["class"] == "transformer" or data["class"] == "single_transformer"):
 					config_name = data["configuration"]
-					cinfig_data = self.objects[config_name]
+					config_data = self.objects[config_name]
 					from_node_name = data["from"]
 					to_node_name = data["to"]
 					from_node_voltage = self.objects[from_node_name]["nominal_voltage"]
 					to_node_voltage = self.objects[to_node_name]["nominal_voltage"]
-					primary_voltage = cinfig_data["primary_voltage"]
-					secondary_voltage = cinfig_data["secondary_voltage"]
+					primary_voltage = config_data["primary_voltage"]
+					secondary_voltage = config_data["secondary_voltage"]
 					if from_node_voltage == "${GLM_NOMINAL_VOLTAGE}" and primary_voltage.replace("kV","") != nominal_voltage:
 						warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has primary voltage as {primary_voltage} but node {from_node_name} nominal voltage is {nominal_voltage}kV.")
+						if voltage_check_fix:
+							check_done = False
+							self.objects[from_node_name]["nominal_voltage"] = primary_voltage
 					elif from_node_voltage != "${GLM_NOMINAL_VOLTAGE}" and float(primary_voltage.replace("kV","")) != float(from_node_voltage.replace("kV","")):
 						warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has primary voltage as {primary_voltage} but node {from_node_name} nominal voltage is {from_node_voltage}.")
+						if voltage_check_fix:
+							check_done = False
+							self.objects[from_node_name]["nominal_voltage"] = primary_voltage
 					if to_node_voltage == "${GLM_NOMINAL_VOLTAGE}" and secondary_voltage.replace("kV","") != nominal_voltage:
 						warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has secondary voltage as {secondary_voltage} but node {to_node_name} nominal voltage is {nominal_voltage}kV.")
+						if voltage_check_fix:
+							check_done = False
+							self.objects[to_node_name]["nominal_voltage"] = secondary_voltage
 					elif to_node_voltage != "${GLM_NOMINAL_VOLTAGE}" and float(secondary_voltage.replace("kV","")) != float(to_node_voltage.replace("kV","")):
-						warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has primary voltage as {secondary_voltage} but node {to_node_name} nominal voltage is {to_node_voltage}.")
+						warning(f"{cyme_mdbname}@{network_id} voltage mismatch: transformer {name} has secondary voltage as {secondary_voltage} but node {to_node_name} nominal voltage is {to_node_voltage}.")
+						if voltage_check_fix:
+							check_done = False
+							self.objects[to_node_name]["nominal_voltage"] = secondary_voltage
 				elif "from" in data.keys() and "to" in data.keys():
 					from_node_name = data["from"]
 					to_node_name = data["to"]
@@ -1944,7 +1984,6 @@ class GLM:
 						if voltage_check_fix:
 							check_done = False
 							self.objects[to_node_name]["nominal_voltage"] = self.objects[from_node_name]["nominal_voltage"]
-							break
 				elif "parent" in data.keys() and data["class"] not in ["solar", "inverter"]:
 					parent_name = data["parent"]
 					parent_data = self.objects[parent_name]
@@ -1953,7 +1992,6 @@ class GLM:
 						if voltage_check_fix:
 							check_done = False
 							self.objects[name]["nominal_voltage"] = parent_data["nominal_voltage"]
-							break
 
 	def object_checks(self): # Check conversion
 		del_nom_volt_list = ['overhead_line', 'underground_line', 'regulator', 'transformer', 'switch', 'fuse', 'ZIPload', 'diesel_dg','triplex_line_conductor','recorder','inverter','solar','triplex_line']
@@ -2146,127 +2184,127 @@ def cyme_extract_5020(network_id,network):
 		if table_find(cyme_table["node"],NodeId=node_id).iloc[0]["ComponentMask"] != "0":
 			node_dict[node_id] = glm.add_node(node_id, node_links, device_dict, version=5020, node_info={"all_node":all_node})
 
-	# # overhead lines
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("overhead_line_phase", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "overheadbyphase".')
+	# overhead lines
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["overheadbyphase"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("overhead_line_phase", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "overheadbyphase".')
 
-	# # unbalanced overhead lines
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table \'overheadlineunbalanced\'.')
+	# unbalanced overhead lines
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["overheadlineunbalanced"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("overhead_line_unbalanced", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table \'overheadlineunbalanced\'.')
 
-	# # overhead lines
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["overheadline"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("overhead_line", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "overheadline".')
+	# overhead lines
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["overheadline"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("overhead_line", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "overheadline".')
 
-	# # underground lines
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["undergroundline"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("underground_line", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "undergroundline".')
+	# underground lines
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["undergroundline"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("underground_line", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "undergroundline".')
 	
-	# # load
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
-	# 		section_id = all_section_device[all_section_device["DeviceNumber"] == cyme_data['DeviceNumber']]["SectionId"].values
-	# 		load_section = all_section[all_section["SectionId"] == section_id[0]]
-	# 		connection_type = int(all_load[all_load["DeviceNumber"] == cyme_data['DeviceNumber']]['ConnectionConfiguration'])
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("load", cyme_id, cyme_data, version=5200, node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "load_section": load_section, "connection_type": connection_type, "all_node": all_node})
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "customerload".')
+	# load
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["customerload"],NetworkId=network_id).iterrows():
+			section_id = all_section_device[all_section_device["DeviceNumber"] == cyme_data['DeviceNumber']]["SectionId"].values
+			load_section = all_section[all_section["SectionId"] == section_id[0]]
+			connection_type = int(all_load[all_load["DeviceNumber"] == cyme_data['DeviceNumber']]['ConnectionConfiguration'])
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("load", cyme_id, cyme_data, version=5200, node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "load_section": load_section, "connection_type": connection_type, "all_node": all_node})
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "customerload".')
 
-	# # transformer
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("transformer", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "transformer".')
+	# transformer
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["transformer"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("transformer", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "transformer".')
 
-	# # transformerbyphase
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["transformerbyphase"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("single_transformer", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "transformerbyphase".')
+	# transformerbyphase
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["transformerbyphase"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("single_transformer", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "transformerbyphase".')
 
-	# # regulator
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("regulator", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "regulator".')
+	# regulator
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["regulator"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("regulator", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "regulator".')
 
-	# # capacitor
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
-	# 		section_id = all_section_device[all_section_device["DeviceNumber"] == cyme_data['DeviceNumber']]["SectionId"].values
-	# 		cap_section = all_section[all_section["SectionId"] == section_id[0]]
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("capacitor", cyme_id, cyme_data, version=5020,node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "cap_section": cap_section})
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "shuntcapacitor".')
+	# capacitor
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["shuntcapacitor"],NetworkId=network_id).iterrows():
+			section_id = all_section_device[all_section_device["DeviceNumber"] == cyme_data['DeviceNumber']]["SectionId"].values
+			cap_section = all_section[all_section["SectionId"] == section_id[0]]
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("capacitor", cyme_id, cyme_data, version=5020,node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "cap_section": cap_section})
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "shuntcapacitor".')
 
-	# # switches
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("switch", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "switch".')
+	# switches
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["switch"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("switch", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "switch".')
 
-	# # breaker
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["breaker"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("breaker", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "breaker".')
+	# breaker
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["breaker"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("breaker", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "breaker".')
 
-	# # recloser
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["recloser"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("recloser", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "recloser".')
+	# recloser
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["recloser"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("recloser", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "recloser".')
 
-	# # fuse
-	# try:
-	# 	for cyme_id, cyme_data in table_find(cyme_table["fuse"],NetworkId=network_id).iterrows():
-	# 		cyme_id = cyme_data['DeviceNumber']
-	# 		glm.add("fuse", cyme_id, cyme_data, version=5020)
-	# except Exception as err:
-	# 	exception_type = type(err).__name__
-	# 	warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "fuse".')
+	# fuse
+	try:
+		for cyme_id, cyme_data in table_find(cyme_table["fuse"],NetworkId=network_id).iterrows():
+			cyme_id = cyme_data['DeviceNumber']
+			glm.add("fuse", cyme_id, cyme_data, version=5020)
+	except Exception as err:
+		exception_type = type(err).__name__
+		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "fuse".')
 
 # photovoltaic
 	try:
