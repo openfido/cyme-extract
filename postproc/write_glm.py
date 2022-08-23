@@ -60,7 +60,7 @@ cyme_tables_required = [
 	"CYMBREAKER","CYMCAPACITOREXTLTD","CYMCONSUMERCLASS",
 	"CYMCTYPEFILTER","CYMTRANSFORMERBYPHASE","CYMRECLOSER","CYMEQOVERHEADLINE",
 	"CYMSOURCE","CYMEQSHUNTCAPACITOR","CYMPHOTOVOLTAIC","CYMDGGENERATIONMODEL",
-	"CYMCONVERTER","CYMEQAVERAGEGEOARRANGEMENT"]
+	"CYMCONVERTER","CYMEQAVERAGEGEOARRANGEMENT","CYMSCHEMAVERSION"]
 
 #
 # Argument parsing
@@ -228,7 +228,6 @@ config = pd.DataFrame({
 	"GLM_DEFINE" : [""],
 	"GLM_MODIFY" : [""],
 	"GLM_ASSUMPTIONS" : ["include"],
-	"GLM_NODE_EXTRACT" : ["false"],
 	"GLM_VOLTAGE_FIX" : ["false"],
 	"GLM_PHASE_FIX" : ["false"],
 	"GLM_DISTRIBUTED_LOAD_CONFIG" : ["to"],
@@ -267,9 +266,8 @@ output_file = open(settings["GLM_OUTPUT"],"w")
 error_file = open(settings["ERROR_OUTPUT"],"a")
 warning_file = open(settings["WARNING_OUTPUT"],"a")
 
-# default_model_voltage = settings["GLM_NOMINAL_VOLTAGE"][:6]
-default_model_voltage = re.match("\d+[\.]?[\d+]*", settings["GLM_NOMINAL_VOLTAGE"]).group(0)
-node_extract2csv = True if settings["GLM_NODE_EXTRACT"].lower() == "true" else False
+
+default_load_voltage = None
 voltage_check_fix = True if settings["GLM_VOLTAGE_FIX"].lower() == "true" else False
 phase_check_fix = True if settings["GLM_PHASE_FIX"].lower() == "true" else False
 WARNING = True if settings["WARNING"].lower() == "true" else False
@@ -397,13 +395,13 @@ def table_get(table,id,column=None,id_column=None):
 					return table.loc[index][column]
 	return None
 
-def load_cals(load_type,load_phase,connection,load_power1,load_power2,value_type=None):
+def load_cals(load_type,load_phase,connection,load_power1,load_power2,load_voltage,value_type=None):
 	phase_number=int(load_phase)
-	# default_model_voltage in kV
+	# load_voltage in kV
 	if connection == 2: 
 		# delta connection
-		vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
-		vol_imag = float(default_model_voltage)*sin((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
+		vol_real = float(load_voltage)*cos((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
+		vol_imag = float(load_voltage)*sin((1-phase_number)*pi*2.0/3.0+pi/6.0)*1000.0
 		line_phase_gain = sqrt(3.0) 
 		if len(cyme_phase_name_delta[phase_number].replace('N','')) == 2:
 			load_scale = 1
@@ -413,8 +411,8 @@ def load_cals(load_type,load_phase,connection,load_power1,load_power2,value_type
 			error(f'wrong load phase {load_phase} for delta connection', 10)
 	else:
 		# wye connecttion
-		vol_real = float(default_model_voltage)*cos((1-phase_number)*pi*2.0/3.0)*1000.0
-		vol_imag = float(default_model_voltage)*sin((1-phase_number)*pi*2.0/3.0)*1000.0
+		vol_real = float(load_voltage)*cos((1-phase_number)*pi*2.0/3.0)*1000.0
+		vol_imag = float(load_voltage)*sin((1-phase_number)*pi*2.0/3.0)*1000.0
 		line_phase_gain = 1
 		load_scale = len(cyme_phase_name[phase_number].replace('N',''))
 		if load_scale < 0 or load_scale > 3:
@@ -433,7 +431,7 @@ def load_cals(load_type,load_phase,connection,load_power1,load_power2,value_type
 			load_real = load_power1 * 1000
 			if load_power2 > 0.0 or load_power2 < 0.0:
 			    load_imag = load_real/(load_power2/100.0)*sqrt(1-abs(load_power2/100)**2)
-	vol_mag = float(default_model_voltage)*1000.0
+	vol_mag = float(load_voltage)*1000.0
 	vol_complex = vol_real+vol_imag*(1j)
 	if load_type == "Z":
 		if (load_real*load_real + load_imag*load_imag) > 0:
@@ -456,11 +454,12 @@ def capacitor_phase_cals(KVARA,KVARB,KVARC):
 def fix_name(name):
 	name = name.replace(' ', '_')
 	name = name.replace('.','_')
-	name = name.replace('-','')
+	name = name.replace('-','_')
 	name = name.replace('\\','_')
 	name = name.replace('/','_')
 	name = name.replace(':','_')
-	name = name.replace('\'','')
+	name = name.replace('\'','_')
+	name = name.replace('~','_')
 	return name
 
 def arrangeString(string):
@@ -516,7 +515,7 @@ if equipment_file != None:
 		csvname = table[3:].lower()
 		os.system(f"mdb-export {input_folder}/{equipment_file} {table} > {data_folder}/cyme_equipment_tables/{csvname}.csv")
 		row_count = os.popen(f"wc -l {data_folder}/cyme_equipment_tables/{csvname}.csv").read()
-		if int(row_count.strip().split(" ")[0]) == 1:
+		if int(row_count.strip().split(" ")[0]) <= 1:
 			os.remove(f"{data_folder}/cyme_equipment_tables/{csvname}.csv")
 
 	for filename in glob.iglob(f"{data_folder}/cyme_equipment_tables/*.csv"):
@@ -865,7 +864,6 @@ class GLM:
 					warning(f'{cyme_mdbname}@{network_id}: cannot add coordinates for node_id')
 					node_X = np.nan
 					node_Y = np.nan
-
 				node_geodata[node_geodata_id] = {
 					"NotworkID" : network_id,
 					"node" : node_id,
@@ -970,9 +968,12 @@ class GLM:
 	def add_underground_line(self,line_id,line,version):
 		line_name = self.name(line_id,"link")
 		if version == 5020:
-			## SCE feeder UG line length unit is km
+			
 			## TODO
-			length = float(line["Length"])*1000
+			if float(line["Length"]) < 0.05:
+				## SCE feeder UG line length unit is km
+				warning(f"{cyme_mdbname}@{network_id}: length of line '{line_id}' may in km.")
+			length = float(line["Length"])
 		else:
 			length = float(line["Length"])
 		if length == 0.0:
@@ -1134,7 +1135,6 @@ class GLM:
 					spacing = table_get(cyme_table['eqgeometricalarrangement'],"DEFAULT",None,'EquipmentId')
 			else:
 				error(f"table 'eqgeometricalarrangement' for cable spacing is missing", 23)
-			print(spacing.index)
 			if spacing is None:
 				error(f"cannot add cable spacing {spacing_id} for version {version}", 24)
 			elif "GMDPhaseToPhase" in spacing.index:
@@ -1260,6 +1260,7 @@ class GLM:
 		section = kwargs["node_info"]["load_section"].squeeze()
 		connection_type = kwargs["node_info"]["connection_type"]
 		all_node = kwargs["node_info"]["all_node"]
+		default_load_voltage = kwargs["node_info"]["load_voltage"]
 		device_type = int(load["DeviceType"])
 		value_type = int(load["LoadValueType"])
 		if device_type == 20: # spot load is attached at from node of section
@@ -1295,7 +1296,8 @@ class GLM:
 			# from the mdb file, type for constant power load is defined as PQ
 			load_types = {"Z":"constant_impedance","I":"constant_current","PQ":"constant_power"}
 			if ConsumerClassId in load_types.keys():
-				load_cals_complex = load_cals(ConsumerClassId,load["Phase"],connection_type,load_value1,load_value2,value_type)
+				load_cals_complex = load_cals(ConsumerClassId,load["Phase"],connection_type,\
+					load_value1,load_value2,default_load_voltage,value_type)
 				load_value1 = load_cals_complex.real
 				load_value2 = -load_cals_complex.imag
 				if (load_value1*load_value1 + load_value2*load_value2) > 0:
@@ -1309,7 +1311,8 @@ class GLM:
 					return self.object("load",load_name,load_dict)
 			elif ConsumerClassId in ["PV","SWING","SWINGPQ"]: 
 				# GLM bus types allowed
-				load_cals_complex = load_cals("Z",load["Phase"],connection_type,load_value1,load_value2,value_type)
+				load_cals_complex = load_cals("Z",load["Phase"],connection_type,\
+					load_value1,load_value2,default_load_voltage,value_type)
 				load_value1 = load_cals_complex.real
 				load_value2 = -load_cals_complex.imag
 				if (load_value1*load_value1 + load_value2*load_value2) > 0:
@@ -1324,7 +1327,8 @@ class GLM:
 					return self.object("load",load_name,load_dict)
 			elif ConsumerClassId in ["CGSUB","Other","Industrial","Residential","NONE"]:
 				# GLM bus types allowed
-				load_cals_complex = load_cals("PQ",load["Phase"],connection_type,load_value1,load_value2,value_type)
+				load_cals_complex = load_cals("PQ",load["Phase"],connection_type,\
+					load_value1,load_value2,default_load_voltage,value_type)
 				load_value1 = load_cals_complex.real
 				load_value2 = -load_cals_complex.imag
 				if (load_value1*load_value1 + load_value2*load_value2) > 0:
@@ -1334,7 +1338,8 @@ class GLM:
 						"nominal_voltage" : "${GLM_NOMINAL_VOLTAGE}",
 					}
 					for i_phase in phase:
-						load_dict[f"constant_power_{i_phase}"] = "%.4g%+.4gj" % (load_value1/10,load_value2/10)
+						# load_dict[f"constant_power_{i_phase}"] = "%.4g%+.4gj" % (load_value1,load_value2)
+						load_dict[f"constant_power_{i_phase}"] = "%.4g%+.4gj" % (0.01,0.01)
 					return self.object("load",load_name,load_dict)
 			else:
 				warning(f"{cyme_mdbname}@{network_id}: load '{load_id}' on phase '{phase}' dropped because '{ConsumerClassId}' is not a supported CYME load type")
@@ -1427,6 +1432,7 @@ class GLM:
 		capacitor_dict["switchA"] = SWITCH_A
 		capacitor_dict["switchB"] = SWITCH_B
 		capacitor_dict["switchC"] = SWITCH_C
+		capacitor_dict["control"] = "MANUAL"
 		capacitor_dict["control"] = "MANUAL"
 		return self.object("capacitor",capacitor_name,capacitor_dict)
 
@@ -1695,7 +1701,7 @@ class GLM:
 		}
 		self.object("meter", meter_name, meter_dict,overwrite=False)
 
-		line_name = self.name(photovoltaic_id,"link")
+		line_name = self.name(photovoltaic_id,"overhead_line")
 		conductorABC_id = "DEFAULT"
 		conductorN_id = "DEFAULT"
 		self.add_overhead_line_conductors([conductorABC_id,conductorN_id],version)
@@ -1703,6 +1709,9 @@ class GLM:
 		self.add_line_spacing(spacing_id,version)
 		configuration_name = self.add_line_configuration([conductorABC_id,conductorABC_id,conductorABC_id,conductorN_id,spacing_id],version)
 		return self.object("overhead_line", line_name, {
+			"phases" : phases,
+			"from" : parent_name,
+			"to" : meter_name,
 			"length" : "1 m",
 			"configuration" : configuration_name,
 			})
@@ -1991,7 +2000,11 @@ class GLM:
 						warning(f"{cyme_mdbname}@{network_id} voltage mismatch: parent {parent_name} has voltage as {parent_data['nominal_voltage']} but child {name} has {data['nominal_voltage']}.")
 						if voltage_check_fix:
 							check_done = False
+							old_voltage = self.objects[name]["nominal_voltage"]
 							self.objects[name]["nominal_voltage"] = parent_data["nominal_voltage"]
+							if data["class"] == "load":
+								warning(f"{cyme_mdbname}@{network_id}: load {fix_name(name)} nominal_voltage changes from {old_voltage} to {parent_data['nominal_voltage']}.")
+								
 
 	def object_checks(self): # Check conversion
 		del_nom_volt_list = ['overhead_line', 'underground_line', 'regulator', 'transformer', 'switch', 'fuse', 'ZIPload', 'diesel_dg','triplex_line_conductor','recorder','inverter','solar','triplex_line']
@@ -2066,7 +2079,7 @@ def feeder_voltage_find(network_id):
 	return feeder_kVLN
 
 #
-# CYME 5 MDB extractor
+# CYME 5,7,9 MDB extractor
 #
 def cyme_extract_5020(network_id,network):
 
@@ -2132,6 +2145,7 @@ def cyme_extract_5020(network_id,network):
 			glm.ifndef("GLM_NOMINAL_VOLTAGE",lambda:glm.error("GLM_NOMINAL_VOLTAGE must be defined in either 'config.csv' or the GLM_INCLUDE file"))
 		else:
 			error("GLM_NOMINAL_VOLTAGE must be defined in either 'config.csv' or the GLM_INCLUDE file")
+	default_load_voltage = re.match("\d+[\.]?[\d+]*", settings["GLM_NOMINAL_VOLTAGE"]).group(0)
 	if settings["GLM_INCLUDE"]:
 		for include in settings["GLM_INCLUDE"].split():
 			glm.include(include.strip())
@@ -2227,7 +2241,7 @@ def cyme_extract_5020(network_id,network):
 			load_section = all_section[all_section["SectionId"] == section_id[0]]
 			connection_type = int(all_load[all_load["DeviceNumber"] == cyme_data['DeviceNumber']]['ConnectionConfiguration'])
 			cyme_id = cyme_data['DeviceNumber']
-			glm.add("load", cyme_id, cyme_data, version=5200, node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "load_section": load_section, "connection_type": connection_type, "all_node": all_node})
+			glm.add("load", cyme_id, cyme_data, version=5200, node_info={"Node_Links":node_links, "Device_Dicts": device_dict, "load_section": load_section, "connection_type": connection_type, "all_node": all_node,"load_voltage" : default_load_voltage})
 	except Exception as err:
 		exception_type = type(err).__name__
 		warning(f'{cyme_mdbname}@{network_id}: ({exception_type}: {err}) cannot add GLM objects from cyme_table "customerload".')
@@ -2332,12 +2346,12 @@ def cyme_extract_5020(network_id,network):
 		df_node = df_node.T
 		df_node.drop(df_node[df_node[:]["NotworkID"] != network_id].index,inplace=True)
 		df_node = df_node.drop(["NotworkID"], axis=1)
-		df_node.to_csv(f'{output_folder}/{coordinate_file}.csv', index = False, header=True)
+		df_node.to_csv(f'{output_folder}/{coordinate_file}', index = False, header=True)
 
 	glm.close()
 
 #
-# CYME 4 MDB extractor ???
+# CYME 4 MDB extractor
 #
 def cyme_extract_4700(network_id,network):
 	creation_time = int(network["CreationTime"])
@@ -2562,7 +2576,7 @@ def cyme_extract_4700(network_id,network):
 		df_node = df_node.T
 		df_node.drop(df_node[df_node[:]["NotworkID"] != network_id].index,inplace=True)
 		df_node = df_node.drop(["NotworkID"], axis=1)
-		df_node.to_csv(f'{output_folder}/{coordinate_file}.csv', index = False, header=True)
+		df_node.to_csv(f'{output_folder}/{coordinate_file}', index = False, header=True)
 
 	glm.close()
 
@@ -2571,10 +2585,13 @@ def cyme_extract_4700(network_id,network):
 # Process cyme_table["network"]
 #
 cyme_extract = {
-	"5020" : cyme_extract_5020, # CYME version 5 database
+	"90000" : cyme_extract_5020, # CYME version 9 database
+	"71001" : cyme_extract_5020, # CYME version 7 database
+	"50401" : cyme_extract_5020, # CYME version 5 database
 	"4700" : cyme_extract_4700, # CYME version 4 database
 }
-cyme_extract["-1"] = cyme_extract[str(default_cyme_extractor)]
+cyme_extract["-1"] = cyme_extract["50401"]
+version = cyme_table["schemaversion"].loc[0]['Version']
 network_count = 0
 for index, network in cyme_table["network"].iterrows():
 	network_id = network['NetworkId']
@@ -2585,16 +2602,12 @@ for index, network in cyme_table["network"].iterrows():
 	if network_select != None and network_id not in network_select:
 		pass
 	else:
-		version = network["Version"]
 		found = False
 		for key, extractor in cyme_extract.items():
 			if re.match(key,version):
-				if version == "-1":
-					warning(f"CYME model version is not specified (version=-1), using default extractor for version '{default_cyme_extractor}*'")
-				# try:
+				# if version == "-1":
+				# 	warning(f"CYME model version is not specified (version=-1), using default extractor for version '{default_cyme_extractor}*'")
 				extractor(network_id,network)
-				# except:
-				# 	warning(f"connot convert feeder {network_id}.")
 				found = True
 		if not found:
 			raise Exception(f"CYME model version {version} is not supported")
