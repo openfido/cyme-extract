@@ -1,4 +1,4 @@
-#!/usr/local/python3
+#!/usr/bin/python3
 """Draw network graph
 
 Configuration settings (config.csv):
@@ -59,7 +59,7 @@ opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:g:C:",["help","config=","
 # Warning/error/help handling
 #
 def help(exit_code=None,details=False):
-	print("Syntax: python3 -m network_graph.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-g|--generated 'file name'][-t|--cyme-tables] [-c|--config CSV] [-e|--equipment 'file name'] [-n|--network_ID 'ID1 ID2 ..']")
+	print("Syntax: python3 -m network_graph.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-g|--generated 'file name'][-t|--cyme-tables] [-c|--config CSV] [-e|--equipment 'file name'] [-n|--network_ID 'ID1 ID2 ..'] [-C|-coodinate CSV]")
 	if details:
 		print(globals()[__name__].__doc__)
 	if type(exit_code) is int:
@@ -149,12 +149,18 @@ if config_file == None:
 	config_file = f"{input_folder}/config.csv"
 if not network_select:
 	single_file = True
+cyme_mdbname = data_folder.split("/")[-1]
+if generated_file:
+	generated_name = generated_file.split(".")[0]
+else:
+	generated_name = cyme_mdbname
+
 
 # load the configuration
 config = pd.DataFrame({
 	"PNG_FIGSIZE" : ["20x10"],
 	"PNG_FONTSIZE" : ["1"],
-	"PNG_FIGNAME" : ["network_graph.png"],
+	"PNG_FIGNAME" : ["network_graph"],
 	"PNG_NODESIZE" : ["0.1"],
 	"PNG_NODECOLOR" : ["byphase"],
 	"PNG_LAYOUT" : ["nodexy"],
@@ -296,9 +302,9 @@ for network_id in network_list:
 			font_size = int(settings["PNG_FONTSIZE"]),
 			)
 		if network_select:
-			plt.savefig(f"{output_folder}/{network_id}_{settings['PNG_FIGNAME']}")
+			plt.savefig(f"{output_folder}/{generated_name}_{network_id}_network_graph.png")
 		else:
-			plt.savefig(f"{output_folder}/{settings['PNG_FIGNAME']}")
+			plt.savefig(f"{output_folder}/{generated_name}_network_graph.png")
 	except nx.NetworkXError as err:
 		warning(f"Cannot generate the network plot because {err}")
 
