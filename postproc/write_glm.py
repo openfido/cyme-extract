@@ -597,7 +597,7 @@ class GLM:
 		self.refcount = {}
 
 	def __del__(self):
-		if self.objects:
+		if self.object:
 			self.error("glm object was deleted before objects were output")
 
 	def name(self,name,oclass=None):
@@ -892,11 +892,11 @@ class GLM:
 			length = 0.01
 		line_conductor_id = line["LineId"]
 		line_conductor = None
-		if 'eqconductor' in cyme_equipment_table.keys():
+		if 'eqoverheadline' in cyme_equipment_table.keys():
 			line_conductor = table_get(cyme_equipment_table['eqoverheadline'],line_conductor_id,None,'EquipmentId')
 		# elif 'csvundergroundcable' in cyme_equipment_table.keys():
 		# 	## TODO
-		elif 'eqconductor' in cyme_table.keys():
+		elif 'eqoverheadline' in cyme_table.keys():
 			line_conductor = table_get(cyme_table['eqoverheadline'],line_conductor_id,None,'EquipmentId')
 		if line_conductor is None:
 			warning(f'{cyme_mdbname}@{network_id}: OH cable conductor "{line_conductor_id}" of line "{line_id}" is missing in CYME model.Use default settings.')
@@ -2604,7 +2604,7 @@ for index, network in cyme_table["network"].iterrows():
 	else:
 		found = False
 		for key, extractor in cyme_extract.items():
-			if re.match(key,version):
+			if key[0] == version[0]:
 				# if version == "-1":
 				# 	warning(f"CYME model version is not specified (version=-1), using default extractor for version '{default_cyme_extractor}*'")
 				extractor(network_id,network)
