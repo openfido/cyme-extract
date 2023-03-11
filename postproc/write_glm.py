@@ -2,7 +2,7 @@
 """OpenFIDO write_glm post-processor script (version: develop)
 Syntax:
 	host% python3 -m write_glm.py -i|--input INPUTDIR -o|--output OUTPUTDIR -d|--data DATADIR [-c|--config [CONFIGCSV]] 
-	[-h|--help] [-t|--cyme-tables] [-s|--single] [-n|--network ID]
+	[-h|--help] [-t|--cyme-tables] [-s|--single] [-n|--network ID] [-e|--equipment EQUIPMENTCSV] [-g|--generated FILENAME] [-C|--coordinate CSV]
 Concept of Operation
 --------------------
 Files are processed in the local folder, which must contain the required CSV files list in the `cyme_tables_required` 
@@ -430,7 +430,7 @@ def load_cals(load_type,load_phase,connection,load_power1,load_power2,load_volta
 	else:
 			load_real = load_power1 * 1000
 			if load_power2 > 0.0 or load_power2 < 0.0:
-			    load_imag = load_real/(load_power2/100.0)*sqrt(1-abs(load_power2/100)**2)
+				load_imag = load_real/(load_power2/100.0)*sqrt(1-abs(load_power2/100)**2)
 	vol_mag = float(load_voltage)*1000.0
 	vol_complex = vol_real+vol_imag*(1j)
 	if load_type == "Z":
