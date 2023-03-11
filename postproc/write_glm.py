@@ -672,19 +672,19 @@ class GLM:
 			self.write("}")
 
 	def ifdef(self, name, call):
-		glm.write(f"#ifdef {name}")
+		self.write(f"#ifdef {name}")
 		call()
-		glm.write("#endif")
+		self.write("#endif")
 
 	def ifndef(self, name, call):
-		glm.write(f"#ifndef {name}")
+		self.write(f"#ifndef {name}")
 		call()
-		glm.write("#endif")
+		self.write("#endif")
 
 	def ifexist(self, name, call):
-		glm.write(f"#ifexist {name}")
+		self.write(f"#ifexist {name}")
 		call()
-		glm.write("#endif")
+		self.write("#endif")
 
 	def object(self, oclass, name, parameters,overwrite=True):
 		if name not in self.objects.keys():
@@ -1382,7 +1382,7 @@ class GLM:
 		elif "ByPhase" in capacitor.keys():
 			phase = cyme_phase_name[int(capacitor["ByPhase"])]
 		else:
-			warning(f"{cyme_mdbname}@{network_id}: capacitor {capacitor_id} does not specify {err}, phase will be specified based on capacitance data")
+			warning(f"{cyme_mdbname}@{network_id}: capacitor {capacitor_id} does not specify phase, phase will be specified based on capacitance data")
 			phase = cyme_phase_name[capacitor_phase_cals(KVARA,KVARB,KVARC)]
 
 		capacitor_dict = {
