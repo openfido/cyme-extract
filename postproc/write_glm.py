@@ -596,10 +596,6 @@ class GLM:
 		self.assumptions = []
 		self.refcount = {}
 
-	def __del__(self):
-		if self.object:
-			self.error("glm object was deleted before objects were output")
-
 	def name(self,name,oclass=None):
 		if type(name) is list: # composite name
 			# name = "_".join(name).replace(".","").replace(":","")[0:63] # disallow special name characters
