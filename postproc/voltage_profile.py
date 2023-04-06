@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/bin/python3
 import sys, os, time
 import json 
 import getopt
@@ -21,13 +21,13 @@ DEBUG = False
 QUIET = False
 VERBOSE = False
 
-opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:g:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file=","generated="])
+opts, args = getopt.getopt(sys.argv[1:],"hc:i:o:d:tn:e:g:C:",["help","config=","input=","output=","data=","cyme-tables","network_ID=","equipment_file=","generated=","coordinate="])
 
 #
 # Warning/error/help handling
 #
 def help(exit_code=None,details=False):
-	print("Syntax: python3 -m voltage_profile.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-g|--generated 'file name'][-t|--cyme-tables] [-c|--config CSV] [-e|--equipment 'file name'] [-n|--network_ID 'ID1 ID2 ..']")
+	print("Syntax: python3 -m voltage_profile.py -i|--input DIR -o|--output DIR -d|--data DIR [-h|--help] [-g|--generated 'file name'][-t|--cyme-tables] [-c|--config CSV] [-e|--equipment 'file name'] [-n|--network_ID 'ID1 ID2 ..']  [-C|-coodinate CSV]")
 	if details:
 		print(globals()[__name__].__doc__)
 	if type(exit_code) is int:
@@ -97,6 +97,8 @@ for opt, arg in opts:
 		pass
 	elif opt in ("-g", "--generated"):
 		generated_file = arg.strip()
+	elif opt in ("-C", "--coodinate"):
+		pass
 	else:
 		error(f"{opt}={arg} is not a valid option", 5);
 if input_folder == None:
@@ -125,6 +127,7 @@ config = pd.DataFrame({
 	"VOL_OUTPUT" : "/dev/stdout",
 	"ERROR_OUTPUT" : "/dev/stderr",
 	"WARNING_OUTPUT" : "/dev/stderr",
+	"VOLTAGELIMIT" : ["None"],
 	"WARNING" : ["True"], 
 	"DEBUG" : ["False"],
 	"QUIET" : ["False"],
@@ -157,6 +160,7 @@ WARNING = True if settings["WARNING"].lower() == "true" else False
 DEBUG = True if settings["DEBUG"].lower() == "true" else False
 QUIET = True if settings["QUIET"].lower() == "true" else False
 VERBOSE = True if settings["VERBOSE"].lower() == "true" else False
+LIMIT = None if settings["VOLTAGELIMIT"].lower() == "none" else float(settings["VOLTAGELIMIT"])
 
 print(f"*** Running voltage_profile.py ***")
 for name, data in config.iterrows():
@@ -222,11 +226,12 @@ def profile(objects,root,pos=0):
 			if "A" in ph0 and "A" in ph1: plt.plot([pos,pos+linklen],[va0,va1],"%sk"%linktype)
 			if "B" in ph0 and "B" in ph1: plt.plot([pos,pos+linklen],[vb0,vb1],"%sr"%linktype)
 			if "C" in ph0 and "C" in ph1: plt.plot([pos,pos+linklen],[vc0,vc1],"%sb"%linktype)
-			if limit:
-				if (not va1 is None and va1>1+limit) or (not vb1 is None and vb1>1+limit) or (not vc1 is None and vc1>1+limit) : 
+			if LIMIT:
+				if (va1 is not None and va1 != 0.0 and va1>1+LIMIT) or (vb1 is not None and vb1 != 0.0 and vb1>1+LIMIT) or (vc1 is not None and vc1 != 0.0 and vc1>1+LIMIT) : 
 					warning("cyme-extract voltage_profile.py WARNING: node %s voltage is high (%g, %g, %g), phases = '%s', nominal voltage=%g" % (to,va1*vn1,vb1*vn1,vc1*vn1,ph1,vn1));
-				if (not va1 is None and va1<1-limit) or (not vb1 is None and vb1<1-limit) or (not vc1 is None and vc1<1-limit) : 
+				if (va1 is not None and va1 != 0.0 and va1<1-LIMIT) or (vb1 is not None and vb1 != 0.0 and vb1<1-LIMIT) or (vc1 is not None and vc1 != 0.0 and vc1<1-LIMIT) : 
 					warning("cyme-extract voltage_profile.py WARNING: node %s voltage is low (%g, %g, %g), phases = '%s', nominal voltage=%g" % (to,va1*vn1,vb1*vn1,vc1*vn1,ph1,vn1));
+					print([va1,vb1,vc1,LIMIT])
 	if count > 1 and with_nodes:
 		plt.plot([pos,pos,pos],[va0,vb0,vc0],':*',color='grey',linewidth=1)
 		plt.text(pos,min([va0,vb0,vc0]),"[%s]  "%root,color='grey',size=6,rotation=90,verticalalignment='top',horizontalalignment='center')
@@ -234,7 +239,7 @@ def profile(objects,root,pos=0):
 with_nodes = False
 resolution = "300"
 size = "300x200"
-limit = 0.075
+
 if network_select is None:
 	network_list = ["ALL"]
 else:
@@ -246,13 +251,13 @@ for network_id in network_list:
 	if network_select is None:
 		filename_json = f"{generated_name}.json"
 		filename_glm = f"{generated_name}.glm"
-		filename_png = f"{generated_name}.png"
+		filename_png = f"{generated_name}_voltage_profile.png"
 	else:
 		filename_json = f"{generated_name}_{network_id}.json"
 		filename_glm = f"{generated_name}_{network_id}.glm"
-		filename_png = f"{generated_name}_{network_id}.png"
+		filename_png = f"{generated_name}_{network_id}_voltage_profile.png"
 	try:
-		os.system(f"gridlabd {output_folder}/{filename_glm} -o {output_folder}/{filename_json} -w")
+		os.system(f"gridlabd {output_folder}/{filename_glm} -o {output_folder}/{filename_json} -w -D minimum_timestep=3600")
 	except:
 		error(f"Cannot run {output_folder}/{filename_glm}, check GridLAB-D installation or GLM model.", 1)
 	with open(f"{output_folder}/{filename_json}","r") as f :
@@ -266,10 +271,10 @@ for network_id in network_list:
 	plt.ylabel('Voltage (pu)')
 	plt.title(data["globals"]["modelname"]["value"])
 	plt.grid()
-	#plt.legend(["A","B","C"])
-	#plt.tight_layout()
-	# if limit:
-	# 	plt.ylim([1-limit,1+limit])
+	plt.legend(["A","B","C"])
+	plt.tight_layout()
+	if LIMIT:
+		plt.ylim([1-LIMIT,1+LIMIT])
 	plt.savefig(f"{output_folder}/{filename_png}", dpi=int(resolution))
 
 
