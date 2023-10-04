@@ -1,7 +1,7 @@
 {
   "name" : "CYME to GridLAB-D converter",
   "description" : "Extract CYME data and create GridLAB-D model",
-  "docker" : "slacgismo/gridlabd:latest",
+  "docker" : "lfenergy/arras:latest",
   "git" : "https://github.com/openfido/cyme-extract.git",
   "branch" : "main",
   "script" : "openfido.sh",
